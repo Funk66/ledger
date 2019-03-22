@@ -8,6 +8,7 @@ terminaltables = "*"
 colorama = "*"
 pyyaml = "*"
 pydantic = "*"
+colorful = "*"
 
 [dev-packages]
 
