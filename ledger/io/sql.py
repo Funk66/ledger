@@ -3,7 +3,7 @@ from sqlite3 import connect, OperationalError, IntegrityError
 from typing import List, Tuple, Any, Optional, Iterable, Dict
 from pydantic import BaseModel as Entity
 
-from . import Transaction, Category, Tag, log
+from .. import Transaction, Category, Tag, log
 
 
 class SQLError(Exception):

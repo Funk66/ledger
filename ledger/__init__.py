@@ -1,3 +1,4 @@
+from logging import getLogger, basicConfig
 from hashlib import md5
 from pathlib import Path
 from datetime import datetime
@@ -54,5 +55,7 @@ class Category:
     condition: str
 
 
+basicConfig(format='%(message)s')
+log = getLogger('ledger')
 home = Path(Path.home() / '.config' / 'ledger')
 home.mkdir(parents=True, exist_ok=True)

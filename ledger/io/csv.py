@@ -1,10 +1,11 @@
 from csv import reader, writer
 from typing import List
 
-from . import Transaction, sql, home
+from .. import Transaction, home
+from .sql import Store
 
 
-def write(store: sql.Store) -> None:
+def write(store: Store) -> None:
     with open(home / 'transactions.csv', 'w') as output:
         writer(output).writerows(store.select())
 

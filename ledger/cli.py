@@ -1,4 +1,5 @@
-from . import csv, sql, yml, log
+from . import log
+from .io import csv, sql, yml
 
 
 def parse(store: sql.Store, filename: str) -> None:
@@ -11,3 +12,8 @@ def parse(store: sql.Store, filename: str) -> None:
     for category in yml.categories():
         category.condition = f'rowid > {count} AND ({category.condition})'
         store.update(category)
+
+
+def load(store: sql.Store) -> sql.Store:
+    """ Read csv and return store with data """
+    pass

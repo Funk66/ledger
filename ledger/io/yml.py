@@ -1,7 +1,7 @@
 from yaml import safe_load
 from typing import List
 
-from . import Category, home
+from .. import Category, home
 
 
 def read(filename: str):
