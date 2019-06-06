@@ -17,6 +17,6 @@ setup(name='ledger',
       classifiers=['Programming Language :: Python :: 3.7'],
       entry_points={
           'console_scripts': [
-              'ledger = ledger.gui:main'
+              'ledger = ledger.client:run'
           ]
       })
