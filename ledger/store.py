@@ -1,12 +1,12 @@
 from csv import reader, writer
 from random import choice
 from dataclasses import astuple
-from datetime import datetime
 from logging import getLogger
 from pathlib import Path
 from typing import Any, Callable, Dict, Generator, Sequence
 
 from ledger.entities import Tags, Transaction
+from ledger.utils import isodate
 
 TransactionList = Generator[Transaction, None, None]
 
@@ -26,8 +26,8 @@ class Store:
         self.transactions = []
         self.hashes = []
         for row in data:
-            row['date'] = datetime.strptime(row['date'], '%Y-%m-%d').date()
-            row['valuta'] = datetime.strptime(row['valuta'], '%Y-%m-%d').date()
+            row['date'] = isodate(row['date'])
+            row['valuta'] = isodate(row['valuta'])
             row['tags'] = Tags(row['tags'].split(','))
             row['value'] = float(row['value'])
             row['saldo'] = float(row['saldo'])

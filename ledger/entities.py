@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import date as day
 from hashlib import md5
-from typing import Union, Any
+from typing import Any
 
 
 class Tags(set):
@@ -33,24 +33,3 @@ class Transaction:
         if isinstance(item, Transaction) and item.hash == self.hash:
             return True
         return False
-
-
-class Condition:
-    def __init__(self, definitions: Union[str, list]):
-        if isinstance(definitions, str):
-            self.key, self.method, self.value = definitions.split()
-
-    def __call__(self, transaction: Transaction) -> bool:
-        value = getattr(transaction, self.key)
-        method = getattr(value, f'__{self.method}__')
-        return method(self.value)
-
-
-class Filter:
-    def __init__(self, key, operator, value):
-        self.key = getattr(Transaction, key)
-        self.operator = getattr(self.key, operator)
-        self.value = value
-
-    def __call__(self, transaction: Transaction):
-        return self.operator(self.value)
