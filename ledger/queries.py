@@ -1,7 +1,8 @@
 from enum import Enum
+from abc import ABC, abstractmethod
 from re import compile
 from datetime import date
-from typing import TypeVar, Type, Any, Callable
+from typing import TypeVar, Type, Any, Callable, List, Union
 from functools import partial
 
 from .entities import Transaction
@@ -18,8 +19,7 @@ class Operator(Enum):
     le = '<='
     ne = '!='
     eq = 'is'
-    like = 'like'
-    contains = 'has'
+    re = 'has'
 
 
 class Query:
@@ -28,8 +28,8 @@ class Query:
         self.operator = Operator(operator)
         datatype = Transaction.__annotations__[self.key]
         self.value = converter(value, datatype)
-        if self.operator is Operator.like:
-            self.check = compile(self.value).match
+        if self.operator is Operator.re:
+            self.check = compile(self.value).search
         else:
             method = getattr(datatype, f'__{self.operator.name}__')
             self.check = partial(self.__inv__, method)

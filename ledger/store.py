@@ -1,8 +1,8 @@
 from csv import reader, writer
-from random import choice
 from dataclasses import astuple
 from logging import getLogger
 from pathlib import Path
+from random import choice
 from typing import Any, Callable, Dict, Generator, Sequence
 
 from ledger.entities import Tags, Transaction
@@ -62,9 +62,6 @@ class Store:
 
     def extend(self, transactions: Sequence[Transaction]) -> None:
         for transaction in transactions:
-            if not isinstance(transaction, Transaction):
-                raise ValueError(
-                    f'Expected <Transaction>, got <{type(transaction)}>')
             if transaction.hash not in self:
                 self.transactions.append(transaction)
                 self.hashes.append(transaction.hash)
@@ -82,7 +79,7 @@ class Store:
                 previous_saldo = saldo[transaction.account]
                 current_saldo = round(transaction.saldo - transaction.value, 2)
                 if current_saldo != previous_saldo:
-                    log.info(f"Check {transaction.hash} on row {row}")
+                    raise ValueError(f"Check {transaction.hash} on row {row}")
             saldo[transaction.account] = transaction.saldo
             row += 1
 
