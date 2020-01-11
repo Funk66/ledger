@@ -1,2 +1,5 @@
 -r main.in
+flake8
+mypy
 pip-tools
+pytest
