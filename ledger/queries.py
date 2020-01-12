@@ -1,8 +1,7 @@
 from enum import Enum
-from abc import ABC, abstractmethod
 from re import compile
 from datetime import date
-from typing import TypeVar, Type, Any, Callable, List, Union
+from typing import TypeVar, Type, Any, Callable
 from functools import partial
 
 from .entities import Transaction

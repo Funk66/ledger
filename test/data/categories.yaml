@@ -1,0 +1,8 @@
+groceries:
+  utilities:
+  food:
+    - PENNY
+    - TESCO
+
+others:
+  - WOOLWORTH
