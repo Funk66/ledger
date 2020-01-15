@@ -2,7 +2,7 @@ from csv import reader, writer
 from dataclasses import astuple
 from logging import getLogger
 from pathlib import Path
-from random import choice
+from random import random
 from typing import Any, Callable, Dict, Generator, Sequence
 
 from ledger.entities import Tags, Transaction
@@ -22,9 +22,8 @@ class Store:
         headers = rows[0]
         if set(headers) != set(self.columns):
             raise ValueError(f"Database columns do not match current schema")
-        data = [dict(zip(headers, row[1:])) for row in rows]
+        data = [dict(zip(headers, row)) for row in rows[1:]]
         self.transactions = []
-        self.hashes = []
         for row in data:
             row['date'] = isodate(row['date'])
             row['valuta'] = isodate(row['valuta'])
@@ -33,7 +32,6 @@ class Store:
             row['saldo'] = float(row['saldo'])
             transaction = Transaction(**row)
             self.transactions.append(transaction)
-            self.hashes.append(transaction.hash)
 
     def __iter__(self) -> TransactionList:
         return self.transactions.__values__()
@@ -41,18 +39,12 @@ class Store:
     def __len__(self) -> int:
         return len(self.transactions)
 
-    def __contains__(self, item: Any) -> bool:
-        if isinstance(item, Transaction):
-            if item.hash in self.transactions:
-                return True
-        return False
-
     def get(self,
             query: Callable[[Transaction], bool] = None) -> TransactionList:
         if query:
             return (t for t in self.transactions.values if query(t))
         else:
-            return self.transactions[choice(self.hashes)]
+            return self.transactions[round(random()*len(self.transactions))]
 
     def column(self, column: str) -> Generator[Any, None, None]:
         if column not in self.columns:
@@ -61,15 +53,21 @@ class Store:
             yield getattr(transaction, column)
 
     def extend(self, transactions: Sequence[Transaction]) -> None:
-        for transaction in transactions:
-            if transaction.hash not in self:
-                self.transactions.append(transaction)
-                self.hashes.append(transaction.hash)
-            else:
-                original = astuple(self.transactions[transaction.hash])[:6]
-                current = astuple(transaction)[:6]
-                if current != original:
-                    log.warning(f'Mismatch: {current} != {original}')
+        first = transactions[0].hash
+        start = 0
+        total = len(self.transactions)
+        while start < total:
+            if self.transactions[start].hash == first:
+                break
+            start += 1
+        end = total - start
+        for i in range(end):
+            original = astuple(self.transactions[i + start])[:6]
+            current = astuple(transactions[i])[:6]
+            if current != original:
+                raise ValueError(f'Mismatch: {current} != {original}')
+
+        self.transactions += transactions[end:]
 
     def check(self) -> None:
         row = 1
