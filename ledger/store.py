@@ -7,6 +7,8 @@ from typing import Any, Callable, Dict, Generator, Sequence
 
 from ledger.entities import Tags, Transaction
 from ledger.utils import isodate
+from ledger.queries import Filter
+from ledger.tables import Table
 
 TransactionList = Generator[Transaction, None, None]
 
@@ -16,28 +18,20 @@ class Store:
     columns = [field for field in Transaction.__annotations__]
 
     def __init__(self):
-        with open(self.path, encoding='latin-1') as csvfile:
-            rows = [row for row in reader(csvfile)]
-        assert rows, "Database is empty"
-        headers = rows[0]
-        if set(headers) != set(self.columns):
-            raise ValueError(f"Database columns do not match current schema")
-        data = [dict(zip(headers, row)) for row in rows[1:]]
+        self.filter = Filter([])
         self.transactions = []
-        for row in data:
-            row['date'] = isodate(row['date'])
-            row['valuta'] = isodate(row['valuta'])
-            row['tags'] = Tags(row['tags'].split(','))
-            row['value'] = float(row['value'])
-            row['saldo'] = float(row['saldo'])
-            transaction = Transaction(**row)
-            self.transactions.append(transaction)
 
     def __iter__(self) -> TransactionList:
         return self.transactions.__values__()
 
     def __len__(self) -> int:
         return len(self.transactions)
+
+    def print(self) -> None:
+        data = [astuple(row) for row in self.filter.data[-1]]
+        table = Table(self.columns, data)
+        print(table.header())
+        print(table.rows())
 
     def get(self,
             query: Callable[[Transaction], bool] = None) -> TransactionList:
@@ -68,6 +62,7 @@ class Store:
                 raise ValueError(f'Mismatch: {current} != {original}')
 
         self.transactions += transactions[end:]
+        log.info(f"{len(self.transactions) - total} new transactions")
 
     def check(self) -> None:
         row = 1
@@ -80,8 +75,30 @@ class Store:
                     raise ValueError(f"Check {transaction.hash} on row {row}")
             saldo[transaction.account] = transaction.saldo
             row += 1
+        log.info("Check passed")
+
+    def load(self):
+        log.info("Loading store")
+        with open(self.path, encoding='latin-1') as csvfile:
+            rows = [row for row in reader(csvfile)]
+        assert rows, "Database is empty"
+        headers = rows[0]
+        if set(headers) != set(self.columns):
+            raise ValueError(f"Database columns do not match current schema")
+        data = [dict(zip(headers, row)) for row in rows[1:]]
+        self.transactions = []
+        for row in data:
+            row['date'] = isodate(row['date'])
+            row['valuta'] = isodate(row['valuta'])
+            row['tags'] = Tags(row['tags'].split(','))
+            row['value'] = float(row['value'])
+            row['saldo'] = float(row['saldo'])
+            transaction = Transaction(**row)
+            self.transactions.append(transaction)
+        self.filter.data = [self.transactions]
 
     def save(self, path: Path = None) -> None:
+        log.info("Writing store")
         transactions = [astuple(t) for t in self.transactions]
         with open(
                 path or self.path, 'w', encoding='latin-1',

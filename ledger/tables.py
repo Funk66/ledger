@@ -1,11 +1,11 @@
 import colorful
-from typing import List, Any
+from typing import Sequence, Any
 
 
 class Table:
     # TODO: add carets for sorting
 
-    def __init__(self, columns: List[str], data: List[List[Any]],
+    def __init__(self, columns: Sequence[str], data: Sequence[Sequence[Any]],
                  sorting=None):
         self.size = len(columns)
         self.columns = columns
@@ -13,7 +13,11 @@ class Table:
         self.widths = [len(column) for column in columns]
         for row in data:
             for i in range(len(row)):
-                self.widths[i] = max(len(str(row[i])), self.widths[i])
+                if isinstance(row[i], float):
+                    value = f"{row[i]:.2f}"
+                else:
+                    value = str(row[i])
+                self.widths[i] = max(len(value), self.widths[i])
 
     def _border_(self, position: int) -> str:
         if position == 1:
@@ -27,7 +31,7 @@ class Table:
         return self._row_([''] * self.size, char[0], char[1], char[2], '─')
 
     def _row_(self,
-              row: List[Any],
+              row: Sequence[Any],
               left: str = '│',
               middle: str = '│',
               right: str = '│',
