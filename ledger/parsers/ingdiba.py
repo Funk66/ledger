@@ -39,6 +39,7 @@ types = {
     'Entgelt': 'fee',
     'Gehalt/Rente': 'payroll',
     'Gutschrift': 'income',
+    'Retouren': 'return',
     'Gutschrift aus Dauerauftrag': 'income auto',
     'Dauerauftrag / Terminueberweisung': 'payment auto',
     'Dauerauftrag/Terminueberweisung': 'payment auto'

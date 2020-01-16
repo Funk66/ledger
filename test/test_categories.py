@@ -1,21 +1,24 @@
+from pytest import fixture
 from pathlib import Path
 
-from ledger.categories import Category, apply, parse
-
-from . import sample_store
+from ledger.categories import Category, Categorizer
 
 
-def test_parse():
-    categories = parse(Path(__file__).parent / 'data' / 'categories.yaml')
-    assert categories == [
+@fixture(scope='module')
+def categorizer():
+    sample_file = Path(__file__).parent / 'data' / 'categories.yaml'
+    return Categorizer(sample_file)
+
+
+def test_parse(categorizer):
+    assert categorizer.categories == [
         Category('groceries:food', ['PENNY', 'TESCO']),
         Category('others', ['WOOLWORTH']),
     ]
 
 
-def test_apply():
-    apply(sample_store,
-          parse(Path(__file__).parent / 'data' / 'categories.yaml'))
-    assert sample_store[0].category == 'groceries:food'
-    assert sample_store[2].category == 'groceries:food'
-    assert sample_store[3].category == 'others'
+def test_apply(categorizer, transactions):
+    categorizer(transactions)
+    assert transactions[0].category == 'groceries:food'
+    assert transactions[2].category == 'groceries:food'
+    assert transactions[3].category == 'others'
