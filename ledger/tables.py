@@ -4,6 +4,7 @@ from typing import List, NewType, Optional, Type
 Kind = NewType('Kind', str)
 TEXT = Kind('TEXT')  # TODO: add length
 FLOAT = Kind('FLOAT')
+INTEGER = Kind('INTEGER')
 DATE = Kind('DATE')
 
 
@@ -64,8 +65,8 @@ class Transactions(Table):
         Column('type', TEXT, null=False),
         Column('subject', TEXT, null=False),
         Column('reference', TEXT, null=False),
-        Column('value', FLOAT, null=False),
-        Column('saldo', FLOAT, null=False),
+        Column('value', FLOAT, null=False, primary=True),
+        Column('saldo', FLOAT, null=False, primary=True),
         Column('account', TEXT, null=False),
         Column('category', TEXT),
         Column('comment', TEXT),
@@ -75,5 +76,5 @@ class Transactions(Table):
 class Tags(Table):
     columns = [
         Column('name', TEXT),
-        Column('transactions', TEXT, reference=Transactions),
+        Column('transactions', INTEGER, reference=Transactions),
     ]
