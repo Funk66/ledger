@@ -75,6 +75,6 @@ class Transactions(Table):
 
 class Tags(Table):
     columns = [
-        Column('name', TEXT),
-        Column('transactions', INTEGER, reference=Transactions),
+        Column('tag', TEXT, primary=True),
+        Column('link', INTEGER, primary=True, reference=Transactions),
     ]

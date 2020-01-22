@@ -8,9 +8,21 @@ backcall==0.1.0 \
     --hash=sha256:38ecd85be2c1e78f77fd91700c76e14667dc21e2713b63876c0eb901196e01e4 \
     --hash=sha256:bbbf4b1e5cd2bdb08f915895b51081c041bac22394fdfcfdfbe9f14b77c08bf2 \
     # via ipython
+cli-helpers[styles]==1.2.1 \
+    --hash=sha256:0885ab0a6e0b03f39bcbd6ebd1c439131a94a20d8f5ba2b3e464e9fa05a1a80b \
+    --hash=sha256:98db22eaa86827d99ee6af9f5f3923142d04df256425204530842b032849a165 \
+    --hash=sha256:e8be0d0f079798490e6bc2a46087a045a8e5b64964eceb210bbb7ba1d98baacd \
+    # via litecli
+click==7.0 \
+    --hash=sha256:2335065e6395b9e67ca716de5f7526736bfa6ceead690adf616d925bdc622b13 \
+    --hash=sha256:5b94b49521f6456670fdb30cd82a4eca9412788a93fa6dd6df72c94d5a8ff2d7 \
+    # via litecli
 colorful==0.5.0 \
     --hash=sha256:74bbaeb90fb5b3d31fccdc6e562bdce721f19dc6d566f72a31e43f5503ac2841 \
     --hash=sha256:86db34ba9b41106d7c69a394049e9d47be4cf15f863d04b8a0b21509ea9df6bc
+configobj==5.0.6 \
+    --hash=sha256:a2f5650770e1c87fb335af19a9b7eb73fc05ccf22144eb68db7d00cd2bcb0902 \
+    # via cli-helpers, litecli
 decorator==4.4.1 \
     --hash=sha256:54c38050039232e1db4ad7375cfce6748d7b41c29e95a081c8a6d2c30364a2ce \
     --hash=sha256:5d19b92a3c8f7f101c8dd86afd86b0f061a8ce4540ab8cd401fa2542756bce6d \
@@ -26,6 +38,9 @@ jedi==0.15.2 \
     --hash=sha256:1349c1e8c107095a55386628bb3b2a79422f3a2cab8381e34ce19909e0cf5064 \
     --hash=sha256:e909527104a903606dd63bea6e8e888833f0ef087057829b89a18364a856f807 \
     # via ipython
+litecli==1.2.0 \
+    --hash=sha256:94f531aa9da58af559f1944ff09f2f2692dc1ce9ed3b0c8f2acf6107b4e605f6 \
+    --hash=sha256:a42950fc0e4387b29fbeef28a048d9fb4059327e1e32e90ea8015ee6db8ffea4
 parso==0.5.2 \
     --hash=sha256:55cf25df1a35fd88b878715874d2c4dc1ad3f0eebd1e0266a67e1f55efccfbe1 \
     --hash=sha256:5c1f7791de6bd5dbbeac8db0ef5594b36799de198b3f7f7014643b0c5536b9d3 \
@@ -38,10 +53,11 @@ pickleshare==0.7.5 \
     --hash=sha256:87683d47965c1da65cdacaf31c8441d12b8044cdec9aca500cd78fc2c683afca \
     --hash=sha256:9649af414d74d4df115d5d718f82acb59c9d418196b7b4290ed47a12ce62df56 \
     # via ipython
-prompt-toolkit==3.0.2 \
-    --hash=sha256:0278d2f51b5ceba6ea8da39f76d15684e84c996b325475f6e5720edc584326a7 \
-    --hash=sha256:63daee79aa8366c8f1c637f1a4876b890da5fc92a19ebd2f7080ebacb901e990 \
-    # via ipython
+prompt-toolkit==2.0.10 \
+    --hash=sha256:46642344ce457641f28fc9d1c9ca939b63dadf8df128b86f1b9860e59c73a5e4 \
+    --hash=sha256:e7f8af9e3d70f514373bf41aa51bc33af12a6db3f71461ea47fea985defb2c31 \
+    --hash=sha256:f15af68f66e664eaa559d4ac8a928111eebd5feda0c11738b5998045224829db \
+    # via ipython, litecli
 ptyprocess==0.6.0 \
     --hash=sha256:923f299cc5ad920c68f2bc0bc98b75b9f838b93b599941a6b63ddbc2476394c0 \
     --hash=sha256:d7cc528d76e76342423ca640335bd3633420dc1366f258cb31d05e865ef5ca1f \
@@ -49,7 +65,7 @@ ptyprocess==0.6.0 \
 pygments==2.5.2 \
     --hash=sha256:2a3fe295e54a20164a9df49c75fa58526d3be48e14aceba6d6b1e8ac0bfd6f1b \
     --hash=sha256:98c8aa5a9f778fcd1026a17361ddaf7330d1b7c62ae97c3bb0ae73e0b9b6b0fe \
-    # via ipython
+    # via cli-helpers, ipython, litecli
 pyyaml==5.3 \
     --hash=sha256:059b2ee3194d718896c0ad077dd8c043e5e909d9180f387ce42012662a4946d6 \
     --hash=sha256:1cf708e2ac57f3aabc87405f04b86354f66799c8e62c28c5fc5f88b5521b2dbf \
@@ -65,10 +81,20 @@ pyyaml==5.3 \
 six==1.13.0 \
     --hash=sha256:1f1b7d42e254082a9db6279deae68afb421ceba6158efa6131de7b3003ee93fd \
     --hash=sha256:30f610279e8b2578cab6db20741130331735c781b56053c59c4076da27f06b66 \
-    # via traitlets
+    # via configobj, prompt-toolkit, traitlets
+sqlparse==0.2.4 \
+    --hash=sha256:ce028444cfab83be538752a2ffdb56bc417b7784ff35bb9a3062413717807dec \
+    --hash=sha256:d9cf190f51cbb26da0412247dfe4fb5f4098edb73db84e02f9fc21fdca31fed4 \
+    # via litecli
 squema==0.0.1 \
     --hash=sha256:580db466d634766d38a00dfcd17fecf53556eb686be2219e3bcea404bdd3d07e \
     --hash=sha256:79347276c818746dbf3961930e6641f5d5fa4f2c0b835eb0fdd5dbb3a0dc5414
+tabulate[widechars]==0.8.6 \
+    --hash=sha256:5470cc6687a091c7042cee89b2946d9235fe9f6d49c193a4ae2ac7bf386737c8 \
+    # via cli-helpers
+terminaltables==3.1.0 \
+    --hash=sha256:f3eb0eb92e3833972ac36796293ca0906e998dc3be91fbe1f8615b331b853b81 \
+    # via cli-helpers
 traitlets==4.3.3 \
     --hash=sha256:70b4c6a1d9019d7b4f6846832288f86998aa3b9207c6821f3578a6a6a467fe44 \
     --hash=sha256:d023ee369ddd2763310e4c3eae1ff649689440d4ae59d7485eb4cfbbe3e359f7 \
@@ -76,7 +102,7 @@ traitlets==4.3.3 \
 wcwidth==0.1.8 \
     --hash=sha256:8fd29383f539be45b20bd4df0dc29c20ba48654a41e661925e612311e9f3c603 \
     --hash=sha256:f28b3e8a6483e5d49e7f8949ac1a78314e740333ae305b4ba5defd3e74fb37a8 \
-    # via prompt-toolkit
+    # via prompt-toolkit, tabulate
 
 # The following packages are considered to be unsafe in a requirements file:
 setuptools==45.0.0 \

@@ -48,9 +48,9 @@ class Filter:
         self.queries: List[Union[Query, Callable[[Transaction], bool]]] = []
         self.data = [data]
 
-    def __str__(self) -> str:
-        queries = '> and <'.join([str(query) for query in self.queries])
-        return f"Filter <{queries}>"
+    def __repr__(self) -> str:
+        queries = '] and ['.join([str(query) for query in self.queries])
+        return f"Filter [{queries}]"
 
     def add(self, query: Union[Query, Callable[[Transaction], bool]]) -> None:
         self.queries.append(query)

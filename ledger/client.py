@@ -8,6 +8,7 @@ from traitlets.config import Config  # type: ignore
 from .categories import Categorizer
 from .store import Store
 from .parsers import parsers
+from .database import Client
 
 
 def parse(filename: str, bank: str):
@@ -18,6 +19,14 @@ def parse(filename: str, bank: str):
     store.extend(transactions)
     store.check()
     store.save()
+
+
+def sql():
+    client = Client()
+    client.load()
+    client.prompt()
+    if input('Save? ') == 'y':
+        client.save()
 
 
 def shell():
@@ -42,10 +51,16 @@ def run():
     parse_command = subparser.add_parser('parse', help='Parse a bank extract')
     parse_command.add_argument('filename', help='CSV file to parse')
     parse_command.add_argument('-b', '--bank', help='CSV file format')
+    sql_command = subparser.add_parser('sql')
+    sql_subparser = sql_command.add_subparsers(dest='subcommand')
+    sql_export_command = sql_subparser.add_parser('export')
+    sql_export_command.add_argument('filename')
     arguments = parser.parse_args()
 
-    basicConfig(level=DEBUG if arguments.verbose else INFO)
     if arguments.command == 'parse':
+        basicConfig(level=DEBUG if arguments.verbose else INFO)
         parse(arguments.filename, arguments.bank)
+    elif arguments.command == 'sql':
+        sql()
     else:
         shell()
