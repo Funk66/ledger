@@ -25,8 +25,6 @@ def sql():
     client = Client()
     client.load()
     client.prompt()
-    if input('Save? ') == 'y':
-        client.save()
 
 
 def shell():

@@ -1,7 +1,8 @@
 import logging
 from csv import reader, writer
+from functools import wraps
 from pathlib import Path
-from typing import Any, List, Sequence, Tuple
+from typing import Any, Callable, List, Optional, Sequence, Tuple
 
 from litecli.main import LiteCli, SQLExecute
 
@@ -16,7 +17,9 @@ class Client:
     path = Path.home() / '.config/ledger/'
 
     def __init__(self, filename: str = ':memory:'):
+        self.dirty = False
         self.sqlexecute = SQLExecute(filename)
+        self.sqlexecute.run = tripwire(self.sqlexecute.run, self)
         cursor = self.sqlexecute.conn.cursor()
         cursor.execute(Transactions.create())
         cursor.execute(Tags.create())
@@ -74,6 +77,21 @@ class Client:
         lite_cli = LiteCli(
             sqlexecute=self.sqlexecute, liteclirc=self.path / 'config')
         lite_cli.run_cli()
+        if self.dirty and input('Save? ') == 'y':
+            self.save()
 
 
+def tripwire(run: Callable[[str], 'SQLResponse'],
+             client: Client):
+    @wraps(run)
+    def wrapper(statement: str) -> 'SQLResponse':
+        if statement.lower().startswith('update'):
+            client.dirty = True
+        return run(statement)
+
+    return wrapper
+
+
+SQLResponse = Tuple[Optional[str], Optional[List[Tuple[Any]]], Optional[
+    Tuple[str]], Optional[str]]
 log = logging.getLogger(__name__)
