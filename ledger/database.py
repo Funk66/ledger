@@ -44,6 +44,22 @@ class Client:
     def count(self) -> int:
         return self.fetch(f'SELECT COUNT(value) FROM transactions')[0][0]
 
+    def categories(self) -> List[Tuple[str]]:
+        return self.fetch(f'SELECT category FROM transactions '
+                          f'WHERE category!="" GROUP BY category')
+
+    def find(self, **kwargs) -> List[Tuple[Any]]:
+        columns = ['rowid'] + [column.name for column in Transactions.columns]
+        values = [f'{key}="{value}"' for key, value in kwargs.items()]
+        return self.fetch(f'SELECT {", ".join(columns)} FROM transactions '
+                          f'WHERE {", ".join(values)}')
+
+    def set(self, rowid: int, **kwargs) -> None:
+        cursor = self.sqlexecute.conn.cursor()
+        values = [f'{key}="{value}"' for key, value in kwargs.items()]
+        cursor.execute(f'UPDATE transactions SET {", ".join(values)} '
+                       f'WHERE rowid={rowid}')
+
     def load(self, filename: Path = None) -> None:
         filepath = filename or self.path / 'transactions.csv'
         with open(filepath, encoding='latin-1') as csvfile:

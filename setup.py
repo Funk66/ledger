@@ -9,12 +9,13 @@ def version():
 
 
 setup(name='ledger',
-      packages=['ledger'],
+      packages=['ledger', 'ledger.parsers'],
       version=version(),
       author='Guillermo Guirao Aguilar',
       author_email='contact@guillermoguiraoaguilar.com',
       url='https://github.com/Funk66/ledger',
       classifiers=['Programming Language :: Python :: 3.7'],
+      install_requires=['litecli', 'pyyaml', 'colorful', 'IPython', 'squema'],
       entry_points={
           'console_scripts': [
               'ledger = ledger.client:run'
