@@ -69,6 +69,7 @@ class Transactions(Table):
         Column('saldo', FLOAT, null=False, primary=True),
         Column('account', TEXT, null=False),
         Column('category', TEXT),
+        Column('location', TEXT),
         Column('comment', TEXT),
     ]
 
