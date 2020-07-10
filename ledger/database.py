@@ -1,4 +1,4 @@
-import logging
+from loguru import logger
 from csv import reader, writer
 from functools import wraps
 from pathlib import Path
@@ -31,7 +31,7 @@ class Client:
         return cursor.fetchall()
 
     def insert(self, table: str, data: Sequence[Sequence[Any]]) -> None:
-        log.info(f'Inserting {len(data)} rows into {table}')
+        logger.info(f'Inserting {len(data)} rows into {table}')
         values = ', '.join(['?'] * len(data[0]))
         cursor = self.sqlexecute.conn.cursor()
         cursor.executemany(f'INSERT INTO {table} VALUES ({values})', data)
@@ -110,4 +110,3 @@ def tripwire(run: Callable[[str], 'SQLResponse'],
 
 SQLResponse = Tuple[Optional[str], Optional[List[Tuple[Any]]], Optional[
     Tuple[str]], Optional[str]]
-log = logging.getLogger(__name__)

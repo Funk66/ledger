@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-from logging import DEBUG, INFO, basicConfig
 from pathlib import Path
 
 from IPython import start_ipython  # type: ignore
@@ -56,7 +55,6 @@ def run():
     arguments = parser.parse_args()
 
     if arguments.command == 'parse':
-        basicConfig(level=DEBUG if arguments.verbose else INFO)
         parse(arguments.filename, arguments.bank)
     elif arguments.command == 'sql':
         sql()

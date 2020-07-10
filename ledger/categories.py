@@ -1,4 +1,4 @@
-from logging import getLogger
+from loguru import logger
 from pathlib import Path
 from typing import List, NamedTuple
 
@@ -6,8 +6,6 @@ from yaml import safe_load
 
 from . import home
 from .entities import Transaction
-
-log = getLogger(__name__)
 
 
 class Category(NamedTuple):
@@ -42,7 +40,7 @@ class Categorizer:
                     if keyword in transaction.subject:
                         if transaction.category and \
                                 transaction.category != category:
-                            log.warning(
+                            logger.warning(
                                 f"Transaction {transaction.hash} is already "
                                 "categorized: {transaction.category} != {category}"
                             )

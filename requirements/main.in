@@ -1,5 +1,6 @@
 IPython
 colorful
 litecli
+loguru
 pyyaml
 squema
