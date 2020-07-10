@@ -6,9 +6,9 @@ from IPython import start_ipython  # type: ignore
 from traitlets.config import Config  # type: ignore
 
 from .categories import Categorizer
-from .store import Store
-from .parsers import parsers
 from .database import Client
+from .parsers import parsers
+from .store import Store
 
 
 def parse(filename: str, bank: str):
