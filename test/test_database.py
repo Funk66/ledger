@@ -1,12 +1,18 @@
 from pathlib import Path
+from pytest import fixture
 
 from ledger.database import Client
 
 
-def test_load():
-    client = Client()
-    client.load(Path(__file__).parent.absolute() / 'data/transactions.csv')
-    cursor = client.sqlexecute.conn.cursor()
+@fixture(scope="module")
+def db() -> Client:
+    db = Client()
+    db.load(Path(__file__).parent.absolute() / 'data/transactions.csv')
+    return db
+
+
+def test_load(db: Client):
+    cursor = db.sqlexecute.conn.cursor()
     data = cursor.execute('SELECT * FROM transactions').fetchall()
     assert len(data) == 5
     assert data[0] == ("2015-06-02", "2015-06-02", "payment",
@@ -16,3 +22,9 @@ def test_load():
     data = cursor.execute('SELECT * FROM tags').fetchall()
     assert len(data) == 2
     assert data[0] == ("holidays", 4)
+
+
+def test_count(db: Client):
+    assert db.count() == 5
+
+
