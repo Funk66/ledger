@@ -1,8 +1,8 @@
-groceries:
-  utilities:
-  food:
-    - PENNY
-    - TESCO
+lodging:
+  others:
+  hotels:
+    - NH Hotels
+    - Astoria
 
-others:
-  - WOOLWORTH
+work:
+  - GitHub

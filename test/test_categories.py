@@ -12,13 +12,13 @@ def categorizer():
 
 def test_parse(categorizer):
     assert categorizer.categories == [
-        Category('groceries:food', ['PENNY', 'TESCO']),
-        Category('others', ['WOOLWORTH']),
+        Category('lodging:hotels', ['NH Hotels', 'Astoria']),
+        Category('work', ['GitHub']),
     ]
 
 
-def test_apply(categorizer, transactions):
-    categorizer(transactions)
-    assert transactions[0].category == 'groceries:food'
-    assert transactions[2].category == 'groceries:food'
-    assert transactions[3].category == 'others'
+def test_apply(categorizer, parsed_transactions):
+    categorizer(parsed_transactions)
+    assert parsed_transactions[0].category == 'work'
+    assert parsed_transactions[1].category == ''
+    assert parsed_transactions[2].category == 'lodging:hotels'
