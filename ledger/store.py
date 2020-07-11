@@ -1,6 +1,6 @@
 from csv import reader, writer
 from dataclasses import astuple
-from loguru import logger
+from logging import getLogger
 from pathlib import Path
 from random import random
 from typing import Any, Callable, Dict, Generator, Sequence
@@ -62,7 +62,7 @@ class Store:
                 raise ValueError(f'Mismatch: {current} != {original}')
 
         self.transactions += transactions[end:]
-        logger.info(f"{len(self.transactions) - total} new transactions")
+        log.info(f"{len(self.transactions) - total} new transactions")
 
     def check(self) -> None:
         row = 1
@@ -75,10 +75,10 @@ class Store:
                     raise ValueError(f"Check {transaction.hash} on row {row}")
             saldo[transaction.account] = transaction.saldo
             row += 1
-        logger.info("Check passed")
+        log.info("Check passed")
 
     def load(self):
-        logger.info("Loading store")
+        log.info("Loading store")
         with open(self.path, encoding='latin-1') as csvfile:
             rows = [row for row in reader(csvfile)]
         assert rows, "Database is empty"
@@ -98,12 +98,15 @@ class Store:
         self.filter.data = [self.transactions]
 
     def save(self, path: Path = None) -> None:
-        logger.info("Writing store")
+        log.info("Writing store")
         transactions = [astuple(t) for t in self.transactions]
         with open(
                 path or self.path, 'w', encoding='latin-1',
                 newline='') as output:
-            logger.info(f'Writing table to {path or self.path}')
+            log.info(f'Writing table to {path or self.path}')
             csvfile = writer(output)
             csvfile.writerow(self.columns)
             csvfile.writerows(transactions)
+
+
+log = getLogger(__name__)
