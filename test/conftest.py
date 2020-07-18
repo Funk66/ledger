@@ -1,12 +1,29 @@
 from datetime import date
-
+from typing import List
 from pytest import fixture
 
 from ledger.entities import Tags, Transaction
 
 
 @fixture
-def parsed_transactions():
+def transaction() -> Transaction:
+    return Transaction(
+        date=date(2020, 3, 14),
+        valuta=date(2020, 3, 15),
+        subject="Lupo Lopez",
+        type="payment",
+        reference="Test-o-matic",
+        value=-253.98,
+        saldo=12093.67,
+        account="cash",
+        tags=Tags(["summit", "ledger"]),
+        category="work:freelancing",
+        comment="Code update",
+    )
+
+
+@fixture
+def parsed_transactions() -> List[Transaction]:
     return [
         Transaction(
             date=date(2018, 9, 28),
@@ -62,7 +79,7 @@ def parsed_transactions():
 
 
 @fixture
-def stored_transactions():
+def stored_transactions() -> List[Transaction]:
     return [
         Transaction(
             date=date(2015, 6, 2),
@@ -109,7 +126,7 @@ def stored_transactions():
             value=-20.56,
             saldo=4698.54,
             account="ingdiba",
-            tags=Tags(["holidays"]),
+            tags=Tags(["holidays", "family"]),
         ),
         Transaction(
             date=date(2015, 6, 5),
@@ -120,7 +137,7 @@ def stored_transactions():
             value=-29.35,
             saldo=4669.19,
             account="ingdiba",
-            category="food:groceries",
+            category="groceries:food",
             tags=Tags(["work"]),
         ),
     ]

@@ -1,11 +1,10 @@
 import logging
-from csv import reader, writer
 from functools import wraps
-from pathlib import Path
 from typing import Any, Callable, List, Optional, Sequence, Tuple
 
 from litecli.main import LiteCli, SQLExecute
 
+from . import home
 from .tables import Tags, Transactions
 
 
@@ -14,8 +13,7 @@ class SQLError(Exception):
 
 
 class Client:
-    path = Path.home() / '.config/ledger/'
-
+    """ SQL interface for low-level commands """
     def __init__(self, filename: str = ':memory:'):
         self.dirty = False
         self.sqlexecute = SQLExecute(filename)
@@ -30,8 +28,17 @@ class Client:
         cursor.execute(command)
         return cursor.fetchall()
 
-    def insert(self, table: str, data: Sequence[Sequence[Any]]) -> None:
-        log.info(f'Inserting {len(data)} rows into {table}')
+    def insert(self, table: str, data: Sequence[Any]) -> None:
+        """ Insert one row """
+        self.extend(table, [data])
+
+    def extend(self, table: str, data: Sequence[Sequence[Any]]) -> None:
+        if (total := len(data)) == 0:
+            return
+        elif total == 1:
+            log.debug(f'Inserting row into {table}')
+        else:
+            log.debug(f'Inserting {len(data)} rows into {table}')
         values = ', '.join(['?'] * len(data[0]))
         cursor = self.sqlexecute.conn.cursor()
         cursor.executemany(f'INSERT INTO {table} VALUES ({values})', data)
@@ -44,9 +51,14 @@ class Client:
     def count(self) -> int:
         return self.fetch(f'SELECT COUNT(value) FROM transactions')[0][0]
 
-    def categories(self) -> List[Tuple[str]]:
-        return self.fetch(f'SELECT category FROM transactions '
-                          f'WHERE category!="" GROUP BY category')
+    def categories(self) -> List[str]:
+        return [
+            category
+            for row in self.fetch(
+                'SELECT category FROM transactions WHERE category!="" GROUP BY category'
+            )
+            for category in row
+        ]
 
     def find(self, **kwargs) -> List[Tuple[Any]]:
         columns = ['rowid'] + [column.name for column in Transactions.columns]
@@ -60,38 +72,9 @@ class Client:
         cursor.execute(f'UPDATE transactions SET {", ".join(values)} '
                        f'WHERE rowid={rowid}')
 
-    def load(self, filename: Path = None) -> None:
-        filepath = filename or self.path / 'transactions.csv'
-        with open(filepath, encoding='latin-1') as csvfile:
-            i = 1
-            transactions: List[List[Any]] = []
-            tags: List[Tuple[str, int]] = []
-            for row in reader(csvfile):
-                transactions += [row[:-1]]
-                if row[-1]:
-                    tags += [(tag, i) for tag in row[-1].split(':')]
-                i += 1
-        self.insert('transactions', transactions)
-        if tags:
-            self.insert('tags', tags)
-
-    def save(self, filename: Path = None) -> None:
-        columns = [column.name for column in Transactions.columns] + ['tag']
-        transactions = self.fetch(f'''
-            SELECT {', '.join(columns)}
-            FROM transactions LEFT JOIN tags
-            ON transactions.rowid=tags.link
-            GROUP BY transactions.rowid
-            ORDER BY transactions.rowid ASC
-        ''')
-        filepath = filename or self.path / 'transactions.csv'
-        with open(filepath, 'w', encoding='latin-1', newline='') as output:
-            csvfile = writer(output)
-            csvfile.writerows(transactions)
-
     def prompt(self):
         lite_cli = LiteCli(
-            sqlexecute=self.sqlexecute, liteclirc=self.path / 'config')
+            sqlexecute=self.sqlexecute, liteclirc=home / 'config')
         lite_cli.run_cli()
         if self.dirty and input('Save? ') == 'y':
             self.save()

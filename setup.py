@@ -15,7 +15,7 @@ setup(name='ledger',
       author_email='contact@guillermoguiraoaguilar.com',
       url='https://github.com/Funk66/ledger',
       classifiers=['Programming Language :: Python :: 3.7'],
-      install_requires=['litecli', 'pyyaml', 'colorful', 'IPython', 'squema'],
+      install_requires=['litecli', 'pyyaml', 'colorful', 'IPython'],
       entry_points={
           'console_scripts': [
               'ledger = ledger.client:run'

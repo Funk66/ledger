@@ -1,30 +1,40 @@
-from pathlib import Path
-from pytest import fixture
+from datetime import date
+from pytest import fixture, raises
+from typing import List
 
+from ledger.tables import Transactions
+from ledger.entities import Transaction
 from ledger.database import Client
 
 
-@fixture(scope="module")
-def db() -> Client:
-    db = Client()
-    db.load(Path(__file__).parent.absolute() / 'data/transactions.csv')
-    return db
+@fixture
+def client(stored_transactions: List[Transaction]) -> Client:
+    transactions = [
+        tuple([getattr(transaction, column.name) for column in Transactions.columns])
+        for transaction in stored_transactions
+    ]
+    tags = [
+        (tag, rowid + 1)
+        for rowid in range(len(stored_transactions))
+        for tag in stored_transactions[rowid].tags
+    ]
+    client = Client()
+    client.extend("transactions", transactions)
+    client.extend("tags", tags)
+    return client
 
 
-def test_load(db: Client):
-    cursor = db.sqlexecute.conn.cursor()
-    data = cursor.execute('SELECT * FROM transactions').fetchall()
-    assert len(data) == 5
-    assert data[0] == ("2015-06-02", "2015-06-02", "payment",
-                       "TESCO, UK", "017278916389756839287389260", -9.6,
-                       4776.06, "ingdiba", "groceries:food", "England",
-                       "Dinner for two")
-    data = cursor.execute('SELECT * FROM tags').fetchall()
-    assert len(data) == 2
-    assert data[0] == ("holidays", 4)
+def test_transaction_equity(transaction):
+    data = {**transaction.__dict__}
+    data.update(valuta=date(2030, 7, 1), subject="Nobody", reference="Foreign expenses")
+    assert transaction == Transaction(**data)
+    data.update(value=0)
+    assert transaction != Transaction(**data)
 
 
-def test_count(db: Client):
-    assert db.count() == 5
+def test_count(client: Client):
+    assert client.count() == 5
 
 
+def test_categories(client: Client):
+    assert client.categories() == ["gift:holidays", "groceries:food", "others:cash"]
