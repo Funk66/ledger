@@ -44,9 +44,13 @@ class Client:
         cursor.executemany(f'INSERT INTO {table} VALUES ({values})', data)
         self.sqlexecute.conn.commit()
 
-    def select(self, *args: str) -> List[Tuple[Any]]:
+    def select(self, *args: str, limit: int = 0) -> List[Tuple[Any]]:
+        """ Return selected columns from all transactions """
         columns = ', '.join(args) or '*'
-        return self.fetch(f'SELECT {columns} FROM transactions')
+        command = f'SELECT {columns} FROM transactions'
+        if limit:
+            command += f" LIMIT {limit}"
+        return self.fetch(command)
 
     def count(self) -> int:
         return self.fetch(f'SELECT COUNT(value) FROM transactions')[0][0]
@@ -61,6 +65,7 @@ class Client:
         ]
 
     def find(self, **kwargs) -> List[Tuple[Any]]:
+        # TODO: optionally return one
         columns = ['rowid'] + [column.name for column in Transactions.columns]
         values = [f'{key}="{value}"' for key, value in kwargs.items()]
         return self.fetch(f'SELECT {", ".join(columns)} FROM transactions '
