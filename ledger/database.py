@@ -1,10 +1,13 @@
 import logging
+from re import sub
+from datetime import date
 from functools import wraps
 from typing import Any, Callable, List, Optional, Sequence, Tuple
 
 from litecli.main import LiteCli, SQLExecute
 
 from . import home
+from .entities import Tags as TagSet
 from .tables import Tags, Transactions
 
 
@@ -14,7 +17,9 @@ class SQLError(Exception):
 
 class Client:
     """ SQL interface for low-level commands """
-    def __init__(self, filename: str = ':memory:'):
+    columns = [column.name for column in Transactions.columns] + ["tags"]
+
+    def __init__(self, filename: str = ":memory:"):
         self.dirty = False
         self.sqlexecute = SQLExecute(filename)
         self.sqlexecute.run = tripwire(self.sqlexecute.run, self)
@@ -23,7 +28,8 @@ class Client:
         cursor.execute(Tags.create())
         self.sqlexecute.conn.commit()
 
-    def fetch(self, command: str) -> List[Tuple[Any]]:
+    def fetch(self, command: str) -> List[Tuple[Any, ...]]:
+        log.debug(sub(r"\s+", " ", command))
         cursor = self.sqlexecute.conn.cursor()
         cursor.execute(command)
         return cursor.fetchall()
@@ -36,24 +42,52 @@ class Client:
         if (total := len(data)) == 0:
             return
         elif total == 1:
-            log.debug(f'Inserting row into {table}')
+            log.debug(f"Inserting row into {table}")
         else:
-            log.debug(f'Inserting {len(data)} rows into {table}')
-        values = ', '.join(['?'] * len(data[0]))
+            log.debug(f"Inserting {len(data)} rows into {table}")
+        values = ", ".join(["?"] * len(data[0]))
         cursor = self.sqlexecute.conn.cursor()
-        cursor.executemany(f'INSERT INTO {table} VALUES ({values})', data)
+        cursor.executemany(f"INSERT INTO {table} VALUES ({values})", data)
         self.sqlexecute.conn.commit()
 
-    def select(self, *args: str, limit: int = 0) -> List[Tuple[Any]]:
+    def select(self, *args: str, limit: int = 0) -> List[Tuple[Any, ...]]:
+        # TODO: add kwargs for WHERE clause
         """ Return selected columns from all transactions """
-        columns = ', '.join(args) or '*'
-        command = f'SELECT {columns} FROM transactions'
+        for arg in args:
+            assert arg in self.columns, f"{arg} is not a valid column"
+        columns = args or self.columns
+        column_str = [
+            'GROUP_CONCAT(tags.tag, ",") tags'
+            if column == "tags"
+            else f"transactions.{column}"
+            for column in columns
+        ]
+        command = f"""
+            SELECT {", ".join(column_str)} FROM transactions
+            LEFT JOIN tags ON transactions.rowid = tags.link
+            GROUP BY transactions.rowid
+            ORDER BY transactions.rowid
+        """
         if limit:
             command += f" LIMIT {limit}"
-        return self.fetch(command)
+        rows = self.fetch(command)
+        for column, factory in [
+            ("tags", lambda tags: TagSet(tags.split(',') if tags else [])),
+            ("date", date.fromisoformat),
+            ("valuta", date.fromisoformat),
+        ]:
+            try:
+                position = columns.index(column)
+            except ValueError:
+                continue
+            rows = [
+                row[:position] + (factory(row[position]),) + row[position+1:]
+                for row in rows
+            ]
+        return rows
 
     def count(self) -> int:
-        return self.fetch(f'SELECT COUNT(value) FROM transactions')[0][0]
+        return self.fetch("SELECT COUNT(value) FROM transactions")[0][0]
 
     def categories(self) -> List[str]:
         return [
@@ -64,38 +98,41 @@ class Client:
             for category in row
         ]
 
-    def find(self, **kwargs) -> List[Tuple[Any]]:
+    def find(self, **kwargs) -> List[Tuple[Any, ...]]:
         # TODO: optionally return one
-        columns = ['rowid'] + [column.name for column in Transactions.columns]
+        # TODO: reuse self.select and add WHERE clause
+        columns = ["rowid"] + [column.name for column in Transactions.columns]
         values = [f'{key}="{value}"' for key, value in kwargs.items()]
-        return self.fetch(f'SELECT {", ".join(columns)} FROM transactions '
-                          f'WHERE {", ".join(values)}')
+        return self.fetch(
+            f'SELECT {", ".join(columns)} FROM transactions '
+            f'WHERE {", ".join(values)}'
+        )
 
     def set(self, rowid: int, **kwargs) -> None:
         cursor = self.sqlexecute.conn.cursor()
         values = [f'{key}="{value}"' for key, value in kwargs.items()]
-        cursor.execute(f'UPDATE transactions SET {", ".join(values)} '
-                       f'WHERE rowid={rowid}')
+        cursor.execute(
+            f'UPDATE transactions SET {", ".join(values)} WHERE rowid={rowid}'
+        )
 
     def prompt(self):
-        lite_cli = LiteCli(
-            sqlexecute=self.sqlexecute, liteclirc=home / 'config')
+        lite_cli = LiteCli(sqlexecute=self.sqlexecute, liteclirc=home / "config")
         lite_cli.run_cli()
-        if self.dirty and input('Save? ') == 'y':
+        if self.dirty and input("Save? ") == "y":
             self.save()
 
 
-def tripwire(run: Callable[[str], 'SQLResponse'],
-             client: Client):
+def tripwire(run: Callable[[str], "SQLResponse"], client: Client):
     @wraps(run)
-    def wrapper(statement: str) -> 'SQLResponse':
-        if statement.lower().startswith('update'):
+    def wrapper(statement: str) -> "SQLResponse":
+        if statement.lower().startswith("update"):
             client.dirty = True
         return run(statement)
 
     return wrapper
 
 
-SQLResponse = Tuple[Optional[str], Optional[List[Tuple[Any]]], Optional[
-    Tuple[str]], Optional[str]]
+SQLResponse = Tuple[
+    Optional[str], Optional[List[Tuple[Any]]], Optional[Tuple[str]], Optional[str]
+]
 log = logging.getLogger(__name__)

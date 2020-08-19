@@ -3,7 +3,7 @@ from pytest import fixture, raises
 from typing import List, Tuple, Any
 
 from ledger.tables import Transactions
-from ledger.entities import Transaction
+from ledger.entities import Transaction, Tags
 from ledger.database import Client
 
 
@@ -55,14 +55,30 @@ def test_extend(client: Client, parsed_transactions: List[Transaction]):
 
 def test_select(client: Client):
     assert client.select("type") == [("payment",) for _ in range(5)]
-    assert len(client.select(limit=1)[0]) == len(Transactions.columns)
+    data = client.select()
+    assert data[0] == (
+        date(2015, 6, 2),
+        date(2015, 6, 2),
+        "payment",
+        "TESCO, UK",
+        "017278916389756839287389260",
+        -9.6,
+        4776.06,
+        "ingdiba",
+        "groceries:food",
+        "England",
+        "Dinner for two",
+        Tags(),
+    )
+    assert data[3][-1] == Tags(["holidays", "family"])
+    assert data[4][-1] == Tags(["work"])
 
 
 def test_set(client: Client):
     client.set(1, category="restaurant", location="Paris")
     assert client.select(limit=1)[0] == (
-        '2015-06-02',
-        '2015-06-02',
+        date(2015, 6, 2),
+        date(2015, 6, 2),
         "payment",
         "TESCO, UK",
         "017278916389756839287389260",
@@ -72,4 +88,5 @@ def test_set(client: Client):
         "restaurant",
         "Paris",
         "Dinner for two",
+        Tags(),
     )
