@@ -50,9 +50,11 @@ class Client:
         cursor.executemany(f"INSERT INTO {table} VALUES ({values})", data)
         self.sqlexecute.conn.commit()
 
-    def select(self, *args: str, limit: int = 0) -> List[Tuple[Any, ...]]:
+    def select(self, *args: str, limit: int = 0, **kwargs) -> List[Tuple[Any, ...]]:
         # TODO: add kwargs for WHERE clause
-        """ Return selected columns from all transactions """
+        """ Return transaction data from joined tables.
+        Columns are selected as positional arguments and filters as named arguments.
+        Defaults to all columns a no filtering. """
         for arg in args:
             assert arg in self.columns, f"{arg} is not a valid column"
         columns = args or self.columns
@@ -65,9 +67,12 @@ class Client:
         command = f"""
             SELECT {", ".join(column_str)} FROM transactions
             LEFT JOIN tags ON transactions.rowid = tags.link
-            GROUP BY transactions.rowid
-            ORDER BY transactions.rowid
         """
+        if kwargs:
+            command += "WHERE"
+            for key, value in kwargs.items():
+                command += f" {key}='{value}' "
+        command += "GROUP BY transactions.rowid ORDER BY transactions.rowid"
         if limit:
             command += f" LIMIT {limit}"
         rows = self.fetch(command)
@@ -87,7 +92,7 @@ class Client:
         return rows
 
     def count(self) -> int:
-        return self.fetch("SELECT COUNT(value) FROM transactions")[0][0]
+        return self.fetch("SELECT COUNT(rowid) FROM transactions")[0][0]
 
     def categories(self) -> List[str]:
         return [
@@ -98,15 +103,11 @@ class Client:
             for category in row
         ]
 
-    def find(self, **kwargs) -> List[Tuple[Any, ...]]:
-        # TODO: optionally return one
-        # TODO: reuse self.select and add WHERE clause
-        columns = ["rowid"] + [column.name for column in Transactions.columns]
-        values = [f'{key}="{value}"' for key, value in kwargs.items()]
-        return self.fetch(
-            f'SELECT {", ".join(columns)} FROM transactions '
-            f'WHERE {", ".join(values)}'
-        )
+    def find(self, *args: str, **kwargs) -> Optional[Tuple[Any, ...]]:
+        """ Returns a single row matching the given criteria """
+        if (results := self.select(*args, limit=1, **kwargs)):
+            return results[0]
+        return None
 
     def set(self, rowid: int, **kwargs) -> None:
         cursor = self.sqlexecute.conn.cursor()

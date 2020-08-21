@@ -54,7 +54,7 @@ def test_extend(client: Client, parsed_transactions: List[Transaction]):
 
 
 def test_select(client: Client):
-    assert client.select("type") == [("payment",) for _ in range(5)]
+    assert client.select("type", limit=1) == [("payment",)]
     data = client.select()
     assert data[0] == (
         date(2015, 6, 2),
@@ -72,6 +72,14 @@ def test_select(client: Client):
     )
     assert data[3][-1] == Tags(["holidays", "family"])
     assert data[4][-1] == Tags(["work"])
+    assert client.select("value", "date", saldo=4776.06) == [(-9.6, date(2015, 6, 2))]
+
+
+def test_find(client: Client):
+    assert client.find("subject", "value", category="groceries:food") == (
+        "TESCO, UK",
+        -9.6,
+    )
 
 
 def test_set(client: Client):
