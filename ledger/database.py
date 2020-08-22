@@ -94,6 +94,11 @@ class Client:
     def count(self) -> int:
         return self.fetch("SELECT COUNT(rowid) FROM transactions")[0][0]
 
+    def distinct(self, column: str) -> List[Any]:
+        assert column in self.columns, f"{column} is not a valid column"
+        command = f"SELECT DISTINCT {column} FROM transactions WHERE {column}!=''"
+        return [row[0] for row in self.fetch(command)]
+
     def categories(self) -> List[str]:
         return [
             category

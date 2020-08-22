@@ -98,3 +98,9 @@ def test_set(client: Client):
         "Dinner for two",
         Tags(),
     )
+
+
+def test_distinct(client: Client):
+    assert set(client.distinct("category")) == {"groceries:food", "others:cash", "gift:holidays"}
+    with raises(AssertionError):
+        client.distinct("column")
