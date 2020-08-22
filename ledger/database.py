@@ -127,6 +127,20 @@ class Client:
         if self.dirty and input("Save? ") == "y":
             self.save()
 
+    def check(self):
+        count = self.fetch("SELECT COUNT(rowid) FROM transactions")
+        rowid = self.fetch("SELECT rowid FROM transactions ORDER BY rowid DESC LIMIT 1")
+        assert count == rowid, "The last rowid does not match the total number of rows"
+        for account in self.distinct("account"):
+            previous = None
+            breakpoint()
+            for row in self.select("value", "saldo", "rowid", account=account):
+                if previous is not None:
+                    assert (
+                        previous + row[0] == row[1]
+                    ), f"Error at row {row[2]}: {previous} + {row[0]} != {row[1]}"
+                previous = row[1]
+
 
 def tripwire(run: Callable[[str], "SQLResponse"], client: Client):
     @wraps(run)
