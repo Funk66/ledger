@@ -1,11 +1,11 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, astuple
 from datetime import date as day
-from typing import Any
+from typing import Tuple, Any
 
 
 class Tags(set):
     def __str__(self) -> str:
-        return ", ".join((str(tag) for tag in self))
+        return ";".join((str(tag) for tag in self))
 
 
 @dataclass
@@ -18,10 +18,10 @@ class Transaction:
     value: float
     saldo: float
     account: str
-    tags: Tags = field(default_factory=Tags)
     category: str = ""
     location: str = ""
     comment: str = ""
+    tags: Tags = field(default_factory=Tags)
 
     def __eq__(self, item: Any) -> bool:
         if (
@@ -33,3 +33,7 @@ class Transaction:
         ):
             return True
         return False
+
+    @property
+    def data(self) -> Tuple[Any, ...]:
+        return astuple(self)[:-1]

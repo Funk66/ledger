@@ -1,9 +1,10 @@
 from datetime import date
+from sqlite3 import IntegrityError
 from pytest import fixture, raises
 from typing import List, Tuple, Any
 
 from ledger.tables import Transactions
-from ledger.entities import Transaction, Tags
+from ledger.entities import Transaction
 from ledger.database import Client
 
 
@@ -13,15 +14,8 @@ def raw(transaction: Transaction) -> Tuple[Any, ...]:
 
 @fixture
 def client(stored_transactions: List[Transaction]) -> Client:
-    transactions = [raw(transaction) for transaction in stored_transactions]
-    tags = [
-        (tag, rowid + 1)
-        for rowid in range(len(stored_transactions))
-        for tag in stored_transactions[rowid].tags
-    ]
     client = Client()
-    client.extend("transactions", transactions)
-    client.extend("tags", tags)
+    client.add_many(stored_transactions)
     return client
 
 
@@ -41,18 +35,6 @@ def test_categories(client: Client):
     assert client.categories() == ["gift:holidays", "groceries:food", "others:cash"]
 
 
-def test_insert(client: Client, transaction: Transaction):
-    client.insert("transactions", raw(transaction))
-    assert client.count() == 6
-
-
-def test_extend(client: Client, parsed_transactions: List[Transaction]):
-    client.extend(
-        "transactions", [raw(transaction) for transaction in parsed_transactions]
-    )
-    assert client.count() == 10
-
-
 def test_select(client: Client):
     assert client.select("type", limit=1) == [("payment",)]
     data = client.select()
@@ -68,18 +50,36 @@ def test_select(client: Client):
         "groceries:food",
         "England",
         "Dinner for two",
-        Tags(),
+        set(),
     )
-    assert data[3][-1] == Tags(["holidays", "family"])
-    assert data[4][-1] == Tags(["work"])
+    assert data[3][-1] == {"holidays", "family"}
+    assert data[4][-1] == {"work"}
     assert client.select("value", "date", saldo=4776.06) == [(-9.6, date(2015, 6, 2))]
 
 
-def test_find(client: Client):
-    assert client.find("subject", "value", category="groceries:food") == (
-        "TESCO, UK",
-        -9.6,
-    )
+def test_get_one(client: Client, stored_transactions: List[Transactions]):
+    assert client.get_one() == stored_transactions[0]
+    assert client.get_one(saldo=4719.1) == stored_transactions[2]
+    assert client.get_one(category="nonexistent") is None
+
+
+def test_get_many(client: Client, stored_transactions: List[Transactions]):
+    assert client.get_many() == stored_transactions
+    assert client.get_many(category="groceries:food") == [stored_transactions[0], stored_transactions[4]]
+    assert client.get_many(type="payment", limit=2) == stored_transactions[:2]
+
+
+def test_add_one(client: Client, transaction: Transaction):
+    client.add_one(transaction)
+    assert client.get_one(saldo=transaction.saldo) == transaction
+    with raises(IntegrityError):
+        client.add_one(transaction)
+
+
+def test_add_many(client: Client, parsed_transactions: List[Transaction]):
+    client.add_many(parsed_transactions)
+    assert client.get_one(subject="GitHub Inc.") == parsed_transactions[0]
+    assert client.count() == 10
 
 
 def test_set(client: Client):
@@ -96,7 +96,7 @@ def test_set(client: Client):
         "restaurant",
         "Paris",
         "Dinner for two",
-        Tags(),
+        set(),
     )
 
 

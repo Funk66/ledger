@@ -2,12 +2,12 @@ import logging
 from re import sub
 from datetime import date
 from functools import wraps
-from typing import Any, Callable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 from litecli.main import LiteCli, SQLExecute
 
 from . import home
-from .entities import Tags as TagSet
+from .entities import Transaction
 from .tables import Tags, Transactions
 
 
@@ -29,34 +29,16 @@ class Client:
         self.sqlexecute.conn.commit()
 
     def fetch(self, command: str) -> List[Tuple[Any, ...]]:
-        log.debug(sub(r"\s+", " ", command))
         cursor = self.sqlexecute.conn.cursor()
-        cursor.execute(command)
+        cursor.execute(sub(r"\s+", " ", command))
         return cursor.fetchall()
 
-    def insert(self, table: str, data: Sequence[Any]) -> None:
-        """ Insert one row """
-        self.extend(table, [data])
-
-    def extend(self, table: str, data: Sequence[Sequence[Any]]) -> None:
-        if (total := len(data)) == 0:
-            return
-        elif total == 1:
-            log.debug(f"Inserting row into {table}")
-        else:
-            log.debug(f"Inserting {len(data)} rows into {table}")
-        values = ", ".join(["?"] * len(data[0]))
-        cursor = self.sqlexecute.conn.cursor()
-        cursor.executemany(f"INSERT INTO {table} VALUES ({values})", data)
-        self.sqlexecute.conn.commit()
-
     def select(self, *args: str, limit: int = 0, **kwargs) -> List[Tuple[Any, ...]]:
-        # TODO: add kwargs for WHERE clause
-        """ Return transaction data from joined tables.
+        """ Return rows from joined tables.
         Columns are selected as positional arguments and filters as named arguments.
         Defaults to all columns a no filtering. """
         for arg in args:
-            assert arg in self.columns, f"{arg} is not a valid column"
+            assert arg in ["rowid"] + self.columns, f"{arg} is not a valid column"
         columns = args or self.columns
         column_str = [
             'GROUP_CONCAT(tags.tag, ",") tags'
@@ -70,14 +52,14 @@ class Client:
         """
         if kwargs:
             command += "WHERE"
-            for key, value in kwargs.items():
-                command += f" {key}='{value}' "
+            for column, value in kwargs.items():
+                command += f" {column}='{value}' "
         command += "GROUP BY transactions.rowid ORDER BY transactions.rowid"
         if limit:
             command += f" LIMIT {limit}"
         rows = self.fetch(command)
         for column, factory in [
-            ("tags", lambda tags: TagSet(tags.split(',') if tags else [])),
+            ("tags", lambda tags: set(tags.split(',') if tags else [])),
             ("date", date.fromisoformat),
             ("valuta", date.fromisoformat),
         ]:
@@ -90,6 +72,37 @@ class Client:
                 for row in rows
             ]
         return rows
+
+    def get_one(self, **kwargs) -> Optional[Transaction]:
+        if (transactions := self.get_many(limit=1, **kwargs)):
+            return transactions[0]
+        return None
+
+    def get_many(self, limit: int = 0, **kwargs) -> List[Optional[Transaction]]:
+        rows = self.select(limit=limit, **kwargs)
+        return [Transaction(*row) for row in rows]
+
+    def add_one(self, transaction: Transaction) -> None:
+        self.add_many([transaction])
+
+    def add_many(self, transactions: List[Transaction]) -> None:
+        rows = [transaction.data for transaction in transactions]
+        values = ", ".join(["?"] * len(Transactions.columns))
+        cursor = self.sqlexecute.conn.cursor()
+        cursor.executemany(f"INSERT INTO transactions VALUES ({values})", rows)
+        for transaction in transactions:
+            for tag in transaction.tags:
+                cursor.execute(f"""
+                    INSERT INTO tags (tag, link) VALUES (
+                        "{tag}",
+                        (SELECT rowid FROM transactions WHERE
+                            date="{transaction.date}" and
+                            value={transaction.value} and
+                            saldo={transaction.saldo}
+                        )
+                    )
+                """)
+        self.sqlexecute.conn.commit()
 
     def count(self) -> int:
         return self.fetch("SELECT COUNT(rowid) FROM transactions")[0][0]
@@ -107,12 +120,6 @@ class Client:
             )
             for category in row
         ]
-
-    def find(self, *args: str, **kwargs) -> Optional[Tuple[Any, ...]]:
-        """ Returns a single row matching the given criteria """
-        if (results := self.select(*args, limit=1, **kwargs)):
-            return results[0]
-        return None
 
     def set(self, rowid: int, **kwargs) -> None:
         cursor = self.sqlexecute.conn.cursor()
@@ -133,7 +140,6 @@ class Client:
         assert count == rowid, "The last rowid does not match the total number of rows"
         for account in self.distinct("account"):
             previous = None
-            breakpoint()
             for row in self.select("value", "saldo", "rowid", account=account):
                 if previous is not None:
                     assert (
