@@ -35,37 +35,27 @@ def test_categories(client: Client):
     assert client.categories() == ["gift:holidays", "groceries:food", "others:cash"]
 
 
-def test_select(client: Client):
+def test_select(client: Client, stored_transactions: List[Transaction]):
     assert client.select("type", limit=1) == [("payment",)]
     data = client.select()
-    assert data[0] == (
-        date(2015, 6, 2),
-        date(2015, 6, 2),
-        "payment",
-        "TESCO, UK",
-        "017278916389756839287389260",
-        -9.6,
-        4776.06,
-        "ingdiba",
-        "groceries:food",
-        "England",
-        "Dinner for two",
-        set(),
-    )
-    assert data[3][-1] == {"holidays", "family"}
-    assert data[4][-1] == {"work"}
+    assert data[0][:-1] == stored_transactions[0].data
+    assert data[3][-1] == stored_transactions[3].tags
+    assert data[4][-1] == stored_transactions[4].tags
     assert client.select("value", "date", saldo=4776.06) == [(-9.6, date(2015, 6, 2))]
 
 
-def test_get_one(client: Client, stored_transactions: List[Transactions]):
+def test_get_one(client: Client, stored_transactions: List[Transaction]):
     assert client.get_one() == stored_transactions[0]
     assert client.get_one(saldo=4719.1) == stored_transactions[2]
     assert client.get_one(category="nonexistent") is None
 
 
-def test_get_many(client: Client, stored_transactions: List[Transactions]):
+def test_get_many(client: Client, stored_transactions: List[Transaction]):
     assert client.get_many() == stored_transactions
-    assert client.get_many(category="groceries:food") == [stored_transactions[0], stored_transactions[4]]
+    assert client.get_many(category="groceries:food") == [
+        stored_transactions[0],
+        stored_transactions[4],
+    ]
     assert client.get_many(type="payment", limit=2) == stored_transactions[:2]
 
 
@@ -82,26 +72,29 @@ def test_add_many(client: Client, parsed_transactions: List[Transaction]):
     assert client.count() == 10
 
 
-def test_set(client: Client):
+def test_add_many_with_duplicate(
+    client: Client,
+    stored_transactions: List[Transaction],
+    parsed_transactions: List[Transaction],
+):
+    with raises(IntegrityError):
+        client.add_many(parsed_transactions + stored_transactions[-2:-1])
+
+
+def test_set(client: Client, stored_transactions: List[Transaction]):
+    transaction = stored_transactions[0]
+    transaction.category = "restaurant"
+    transaction.location = "Paris"
     client.set(1, category="restaurant", location="Paris")
-    assert client.select(limit=1)[0] == (
-        date(2015, 6, 2),
-        date(2015, 6, 2),
-        "payment",
-        "TESCO, UK",
-        "017278916389756839287389260",
-        -9.6,
-        4776.06,
-        "ingdiba",
-        "restaurant",
-        "Paris",
-        "Dinner for two",
-        set(),
-    )
+    assert client.select(limit=1)[0][:-1] == transaction.data
 
 
 def test_distinct(client: Client):
-    assert set(client.distinct("category")) == {"groceries:food", "others:cash", "gift:holidays"}
+    assert set(client.distinct("category")) == {
+        "groceries:food",
+        "others:cash",
+        "gift:holidays",
+    }
     with raises(AssertionError):
         client.distinct("column")
 
@@ -109,5 +102,10 @@ def test_distinct(client: Client):
 def test_check(client: Client):
     client.check()
     client.set(3, saldo=123)
-    with raises(AssertionError):
+    with raises(AssertionError, match="Error at row 3"):
+        client.check()
+    cursor = client.sqlexecute.conn.cursor()
+    cursor.execute("DELETE FROM transactions WHERE rowid = 2")
+    client.sqlexecute.conn.commit()
+    with raises(AssertionError, match="The last rowid does not match"):
         client.check()
