@@ -1,142 +1,117 @@
 import logging
 from re import sub
-from datetime import date
+from csv import reader
+from pathlib import Path
+from datetime import date as day
 from functools import wraps
-from typing import Any, Callable, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple, Type, NamedTuple, Dict
 
 from litecli.main import LiteCli, SQLExecute
 
 from . import home
-from .entities import Transaction
-from .tables import Tags, Transactions
 
 
 class SQLError(Exception):
     pass
 
 
-class Client:
-    """ SQL interface for low-level commands """
-    columns = [column.name for column in Transactions.columns] + ["tags"]
+class Column(NamedTuple):
+    name: str
+    type: type
+    null: bool = False
+    primary: bool = False
+    reference: Optional[Type["Table"]] = None
+    types: Dict[Any, str] = {str: "TEXT", int: "INTEGER", float: "FLOAT", day: "DATE"}
 
-    def __init__(self, filename: str = ":memory:"):
-        self.dirty = False
-        self.sqlexecute = SQLExecute(filename)
-        self.sqlexecute.run = tripwire(self.sqlexecute.run, self)
-        cursor = self.sqlexecute.conn.cursor()
-        cursor.execute(Transactions.create())
-        cursor.execute(Tags.create())
-        self.sqlexecute.conn.commit()
+    def __str__(self) -> str:
+        definition = f'"{self.name}" {self.types[self.type]}'
+        if not self.null:
+            definition += " NOT NULL"
+        return definition
+
+
+class MetaTable(type):
+    def __new__(mcs, name, bases, namespace):
+        assert "name" not in namespace, "Do not use 'name' as a column"
+        namespace.update({"name": name.lower(), "columns": []})
+        return super().__new__(mcs, name, bases, namespace)
+
+
+class Table(metaclass=MetaTable):
+    name: str
+    schema: List[Column]
+    columns: List[str]
+
+    def __init__(self, connection):
+        self.connection = connection
+        self.columns = [column.name for column in self.schema]
+        columns = [str(column) for column in self.schema]
+        primary_keys = [col.name for col in self.schema if col.primary]
+        if primary_keys:
+            keys = '", "'.join(primary_keys)
+            columns.append(f'PRIMARY KEY ("{keys}")')
+        foreign_key = [col for col in self.schema if col.reference]
+        if foreign_key:
+            columns.append(
+                f'FOREIGN KEY ("{foreign_key[0].name}") '  # type: ignore
+                f'REFERENCES {foreign_key[0].reference.name}("rowid")'
+            )
+        command = f"CREATE TABLE {self.name} ({', '.join(columns)})"
+        connection.cursor().execute(command)
 
     def fetch(self, command: str) -> List[Tuple[Any, ...]]:
-        cursor = self.sqlexecute.conn.cursor()
+        cursor = self.connection.cursor()
         cursor.execute(sub(r"\s+", " ", command))
         return cursor.fetchall()
 
-    def select(self, *args: str, limit: int = 0, **kwargs) -> List[Tuple[Any, ...]]:
-        """ Return rows from joined tables.
-        Columns are selected as positional arguments and filters as named arguments.
-        Defaults to all columns a no filtering. """
+    def select(
+        self, *args: str, order: str = None, limit: int = 0, **kwargs
+    ) -> List[Tuple[Any, ...]]:
         for arg in args:
-            assert arg in ["rowid"] + self.columns, f"{arg} is not a valid column"
-        columns = args or self.columns
-        column_str = [
-            'GROUP_CONCAT(tags.tag, ",") tags'
-            if column == "tags"
-            else f"transactions.{column}"
-            for column in columns
-        ]
-        command = f"""
-            SELECT {", ".join(column_str)} FROM transactions
-            LEFT JOIN tags ON transactions.rowid = tags.link
-        """
+            assert arg in self.columns, f"{arg} is not a valid column"
+        command = f"SELECT {', '.join(args or self.columns)} FROM {self.name}"
         if kwargs:
-            command += "WHERE"
+            command += " WHERE"
             for column, value in kwargs.items():
-                command += f" {column}='{value}' "
-        command += "GROUP BY transactions.rowid ORDER BY transactions.rowid"
+                command += f" {column}='{value}'"
+        if order:
+            command += " ORDER BY {order}"
         if limit:
             command += f" LIMIT {limit}"
-        rows = self.fetch(command)
-        for column, factory in [
-            ("tags", lambda tags: set(tags.split(',') if tags else [])),
-            ("date", date.fromisoformat),
-            ("valuta", date.fromisoformat),
-        ]:
-            try:
-                position = columns.index(column)
-            except ValueError:
-                continue
-            rows = [
-                row[:position] + (factory(row[position]),) + row[position+1:]
-                for row in rows
-            ]
-        return rows
+        cursor = self.connection.cursor()
+        cursor.execute(command)
+        return cursor.fetchall()
 
-    def get_one(self, **kwargs) -> Optional[Transaction]:
-        if (transactions := self.get_many(limit=1, **kwargs)):
-            return transactions[0]
-        return None
-
-    def get_many(self, limit: int = 0, **kwargs) -> List[Optional[Transaction]]:
-        rows = self.select(limit=limit, **kwargs)
-        return [Transaction(*row) for row in rows]
-
-    def add_one(self, transaction: Transaction) -> None:
-        self.add_many([transaction])
-
-    def add_many(self, transactions: List[Transaction]) -> None:
-        rows = [transaction.data for transaction in transactions]
-        values = ", ".join(["?"] * len(Transactions.columns))
-        cursor = self.sqlexecute.conn.cursor()
-        cursor.executemany(f"INSERT INTO transactions VALUES ({values})", rows)
-        for transaction in transactions:
-            for tag in transaction.tags:
-                cursor.execute(f"""
-                    INSERT INTO tags (tag, link) VALUES (
-                        "{tag}",
-                        (SELECT rowid FROM transactions WHERE
-                            date="{transaction.date}" and
-                            value={transaction.value} and
-                            saldo={transaction.saldo}
-                        )
-                    )
-                """)
-        self.sqlexecute.conn.commit()
-
-    def count(self) -> int:
-        return self.fetch("SELECT COUNT(rowid) FROM transactions")[0][0]
+    def insert(self, data) -> None:
+        pass
 
     def distinct(self, column: str) -> List[Any]:
         assert column in self.columns, f"{column} is not a valid column"
-        command = f"SELECT DISTINCT {column} FROM transactions WHERE {column}!=''"
+        command = f"SELECT DISTINCT {column} FROM {self.name} WHERE {column}!=''"
         return [row[0] for row in self.fetch(command)]
 
-    def categories(self) -> List[str]:
-        return [
-            category
-            for row in self.fetch(
-                'SELECT category FROM transactions WHERE category!="" GROUP BY category'
-            )
-            for category in row
-        ]
+    def count(self) -> int:
+        return self.fetch(f"SELECT COUNT(rowid) FROM {self.name}")[0][0]
 
-    def set(self, rowid: int, **kwargs) -> None:
-        cursor = self.sqlexecute.conn.cursor()
-        values = [f'{key}="{value}"' for key, value in kwargs.items()]
-        cursor.execute(
-            f'UPDATE transactions SET {", ".join(values)} WHERE rowid={rowid}'
-        )
 
-    def prompt(self):
-        lite_cli = LiteCli(sqlexecute=self.sqlexecute, liteclirc=home / "config")
-        lite_cli.run_cli()
-        if self.dirty and input("Save? ") == "y":
-            self.save()
+class Transactions(Table):
+    schema = [
+        Column("date", day, primary=True),
+        Column("valuta", day, null=True),
+        Column("type", str),
+        Column("subject", str),
+        Column("reference", str),
+        Column("value", float, primary=True),
+        Column("saldo", float, primary=True),
+        Column("account", str, primary=True),
+        Column("category", str, null=True),
+        Column("location", str, null=True),
+        Column("comment", str, null=True),
+    ]
 
     def check(self):
-        count = self.fetch("SELECT COUNT(rowid) FROM transactions")
-        rowid = self.fetch("SELECT rowid FROM transactions ORDER BY rowid DESC LIMIT 1")
+        count = self.fetch(f"SELECT COUNT(rowid) FROM {self.name}")
+        rowid = self.fetch(f"SELECT rowid FROM {self.name} ORDER BY rowid DESC LIMIT 1")
         assert count == rowid, "The last rowid does not match the total number of rows"
         for account in self.distinct("account"):
             previous = None
@@ -148,7 +123,32 @@ class Client:
                 previous = row[1]
 
 
-def tripwire(run: Callable[[str], "SQLResponse"], client: Client):
+class Tags(Table):
+    schema = [
+        Column("name", str, primary=True),
+        Column("transaction", int, primary=True, reference=Transactions),
+    ]
+
+
+class SQLite:
+    def __init__(self, filename: str = ":memory:"):
+        self.dirty = False
+        self.sqlexecute = SQLExecute(filename)
+        self.sqlexecute.run = tripwire(self.sqlexecute.run, self)
+        self.transactions = Transactions(self.sqlexecute.conn)
+        self.tags = Tags(self.sqlexecute.conn)
+        self.sqlexecute.conn.commit()
+
+    def load(self, path: Path) -> None:
+        for table in ["transactions", "tags"]:
+            with open(path / "transactions.csv", encoding="latin-1") as csvfile:
+                getattr(self, table).insert(reader(csvfile))
+
+    def save(self, path: Path) -> None:
+        pass
+
+
+def tripwire(run: Callable[[str], "SQLResponse"], client: SQLite):
     @wraps(run)
     def wrapper(statement: str) -> "SQLResponse":
         if statement.lower().startswith("update"):
