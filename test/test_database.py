@@ -1,29 +1,29 @@
 from datetime import date
-from pathlib import Path
-from unittest.mock import patch
 from sqlite3 import IntegrityError
-from pytest import fixture, raises
-from typing import List, Tuple, Any
-from litecli.main import SQLExecute
+from litecli.main import SQLExecute  # type: ignore
+from dataclasses import dataclass, field
 
-from ledger import home
-from ledger.database import SQLite, Table, Column
+from ledger.database import Table, TableSchema, Transaction
 
 
 def test_table():
+    @dataclass
+    class User(TableSchema):
+        email: str = field(metadata={"primary": True})
+        age: int = field(metadata={"primary": True})
+        score: float = field(metadata={"optional": True})
+        birthday: date = field(metadata={"optional": True})
+
     class Users(Table):
-        schema = [
-            Column("email", str, primary=True),
-            Column("age", int),
-            Column("score", float, null=True),
-            Column("birthday", date, null=True),
-        ]
+        schema = User
+
+    @dataclass
+    class Item(TableSchema):
+        id: int = field(metadata={"primary": True})
+        user: str = field(metadata={"reference": Users})
 
     class Items(Table):
-        schema = [
-            Column("id", int, primary=True),
-            Column("user", str, reference=Users),
-        ]
+        schema = Item
 
     connection = SQLExecute(":memory:").conn
     users = Users(connection)
@@ -37,7 +37,7 @@ def test_table():
         '"age" INTEGER NOT NULL, '
         '"score" FLOAT, '
         '"birthday" DATE, '
-        'PRIMARY KEY ("email"))'
+        'PRIMARY KEY ("email", "age"))'
     )
     assert commands[1][0] == (
         "CREATE TABLE items ("
@@ -48,3 +48,22 @@ def test_table():
     )
     assert users.columns == ["email", "age", "score", "birthday"]
     assert items.name == "items"
+
+
+def test_transaction_schema():
+    transaction = Transaction(
+        date="2020-02-03",
+        type="payment",
+        subject="nobody",
+        reference="who knows",
+        value=123,
+        saldo=321,
+        account="bank",
+        category="yup",
+    )
+    assert transaction.date == date(2020, 2, 3)
+    assert transaction.valuta is None
+
+
+def test_select():
+    pass

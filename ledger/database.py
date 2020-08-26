@@ -1,33 +1,34 @@
 import logging
+from dataclasses import dataclass, field
 from re import sub
 from csv import reader
 from pathlib import Path
 from datetime import date as day
 from functools import wraps
-from typing import Any, Callable, List, Optional, Tuple, Type, NamedTuple, Dict
+from typing import (
+    List,
+    Any,
+    Callable,
+    Optional,
+    Tuple,
+    Type,
+    Dict,
+    Generic,
+    TypeVar,
+)
 
-from litecli.main import LiteCli, SQLExecute
-
-from . import home
+from litecli.main import SQLExecute  # type: ignore
 
 
 class SQLError(Exception):
     pass
 
 
-class Column(NamedTuple):
-    name: str
-    type: type
-    null: bool = False
-    primary: bool = False
-    reference: Optional[Type["Table"]] = None
-    types: Dict[Any, str] = {str: "TEXT", int: "INTEGER", float: "FLOAT", day: "DATE"}
+class TableSchema:
+    pass
 
-    def __str__(self) -> str:
-        definition = f'"{self.name}" {self.types[self.type]}'
-        if not self.null:
-            definition += " NOT NULL"
-        return definition
+
+Row = TypeVar("Row", bound=TableSchema)
 
 
 class MetaTable(type):
@@ -37,25 +38,36 @@ class MetaTable(type):
         return super().__new__(mcs, name, bases, namespace)
 
 
-class Table(metaclass=MetaTable):
+class Table(Generic[Row], metaclass=MetaTable):
     name: str
-    schema: List[Column]
+    schema: Type[TableSchema]
     columns: List[str]
+    types: Dict[Any, str] = {str: "TEXT", int: "INTEGER", float: "FLOAT", day: "DATE"}
 
     def __init__(self, connection):
         self.connection = connection
-        self.columns = [column.name for column in self.schema]
-        columns = [str(column) for column in self.schema]
-        primary_keys = [col.name for col in self.schema if col.primary]
+        self.columns = []
+        columns = []
+        primary_keys = []
+        foreign_key = ""
+        for column, attrs in self.schema.__dataclass_fields__.items():
+            self.columns.append(column)
+            columns.append(f'"{column}" {self.types[attrs.type]}')
+            if not attrs.metadata.get("optional"):
+                columns[-1] += " NOT NULL"
+            if attrs.metadata.get("primary"):
+                primary_keys.append(column)
+            if attrs.metadata.get("reference"):
+                assert not foreign_key, "Feature not implemented: multiple foreign keys"
+                foreign_key = (
+                    f'FOREIGN KEY ("{column}") '
+                    f'REFERENCES {attrs.metadata["reference"].name}("rowid")'
+                )
         if primary_keys:
             keys = '", "'.join(primary_keys)
             columns.append(f'PRIMARY KEY ("{keys}")')
-        foreign_key = [col for col in self.schema if col.reference]
         if foreign_key:
-            columns.append(
-                f'FOREIGN KEY ("{foreign_key[0].name}") '  # type: ignore
-                f'REFERENCES {foreign_key[0].reference.name}("rowid")'
-            )
+            columns.append(foreign_key)
         command = f"CREATE TABLE {self.name} ({', '.join(columns)})"
         connection.cursor().execute(command)
 
@@ -64,12 +76,10 @@ class Table(metaclass=MetaTable):
         cursor.execute(sub(r"\s+", " ", command))
         return cursor.fetchall()
 
-    def select(
-        self, *args: str, order: str = None, limit: int = 0, **kwargs
-    ) -> List[Tuple[Any, ...]]:
-        for arg in args:
-            assert arg in self.columns, f"{arg} is not a valid column"
-        command = f"SELECT {', '.join(args or self.columns)} FROM {self.name}"
+    def select(self, order: str = None, limit: int = 0, **kwargs) -> List[Row]:
+        for kwarg in kwargs:
+            assert kwarg in self.columns, f"{kwarg} is not a valid column"
+        command = f"SELECT {', '.join(self.columns)} FROM {self.name}"
         if kwargs:
             command += " WHERE"
             for column, value in kwargs.items():
@@ -80,9 +90,9 @@ class Table(metaclass=MetaTable):
             command += f" LIMIT {limit}"
         cursor = self.connection.cursor()
         cursor.execute(command)
-        return cursor.fetchall()
+        return [self.schema(*row) for row in cursor.fetchall()]
 
-    def insert(self, data) -> None:
+    def insert(self, data: List[Row]) -> None:
         pass
 
     def distinct(self, column: str) -> List[Any]:
@@ -94,40 +104,51 @@ class Table(metaclass=MetaTable):
         return self.fetch(f"SELECT COUNT(rowid) FROM {self.name}")[0][0]
 
 
-class Transactions(Table):
-    schema = [
-        Column("date", day, primary=True),
-        Column("valuta", day, null=True),
-        Column("type", str),
-        Column("subject", str),
-        Column("reference", str),
-        Column("value", float, primary=True),
-        Column("saldo", float, primary=True),
-        Column("account", str, primary=True),
-        Column("category", str, null=True),
-        Column("location", str, null=True),
-        Column("comment", str, null=True),
-    ]
+@dataclass
+class Transaction(TableSchema):
+    date: day = field(metadata={"primary": True})
+    type: str
+    subject: str
+    reference: str
+    value: float = field(metadata={"primary": True})
+    saldo: float = field(metadata={"primary": True})
+    account: str = field(metadata={"primary": True})
+    valuta: Optional[day] = field(default=None, metadata={"optional": True})
+    category: Optional[str] = field(default=None, metadata={"optional": True})
+    location: Optional[str] = field(default=None, metadata={"optional": True})
+    comment: Optional[str] = field(default=None, metadata={"optional": True})
 
-    def check(self):
+    def __post_init__(self):
+        self.date = day.fromisoformat(self.date)
+        if self.valuta:
+            self.valuta = day.fromisoformat(self.valuta)
+
+
+class Transactions(Table):
+    schema = Transaction
+
+    def check(self) -> None:
         count = self.fetch(f"SELECT COUNT(rowid) FROM {self.name}")
         rowid = self.fetch(f"SELECT rowid FROM {self.name} ORDER BY rowid DESC LIMIT 1")
         assert count == rowid, "The last rowid does not match the total number of rows"
         for account in self.distinct("account"):
             previous = None
-            for row in self.select("value", "saldo", "rowid", account=account):
+            for transaction in self.select(account=account):
                 if previous is not None:
                     assert (
-                        previous + row[0] == row[1]
-                    ), f"Error at row {row[2]}: {previous} + {row[0]} != {row[1]}"
-                previous = row[1]
+                        previous + transaction.value == transaction.saldo
+                    ), f"Error: {previous} + {transaction.value} != {transaction.saldo}"
+                previous = transaction[1]
 
 
+class Tag(TableSchema):
+    name: str = field(metadata={"primary": True})
+    transaction: str = field(metadata={"primary": True, "reference": Transactions})
+
+
+@dataclass
 class Tags(Table):
-    schema = [
-        Column("name", str, primary=True),
-        Column("transaction", int, primary=True, reference=Transactions),
-    ]
+    schema = Tag
 
 
 class SQLite:
