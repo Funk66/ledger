@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass, field
 from re import sub
 from csv import reader
 from pathlib import Path
@@ -16,6 +15,7 @@ from typing import (
     Generic,
     TypeVar,
 )
+from dataclasses import dataclass, field, astuple
 
 from litecli.main import SQLExecute  # type: ignore
 
@@ -52,7 +52,11 @@ class Table(Generic[Row], metaclass=MetaTable):
         foreign_key = ""
         for column, attrs in self.schema.__dataclass_fields__.items():
             self.columns.append(column)
-            columns.append(f'"{column}" {self.types[attrs.type]}')
+            if str(attrs.type).startswith("typing.Union"):
+                kind = attrs.type.__args__[0]
+            else:
+                kind = attrs.type
+            columns.append(f'"{column}" {self.types[kind]}')
             if not attrs.metadata.get("optional"):
                 columns[-1] += " NOT NULL"
             if attrs.metadata.get("primary"):
@@ -93,7 +97,11 @@ class Table(Generic[Row], metaclass=MetaTable):
         return [self.schema(*row) for row in cursor.fetchall()]
 
     def insert(self, data: List[Row]) -> None:
-        pass
+        cursor = self.connection.cursor()
+        columns = ", ".join(["?"] * len(self.columns))
+        rows = [astuple(row) for row in data]
+        cursor.executemany(f"INSERT INTO {self.name} VALUES ({columns})", rows)
+        self.connection.commit()
 
     def distinct(self, column: str) -> List[Any]:
         assert column in self.columns, f"{column} is not a valid column"
@@ -119,8 +127,9 @@ class Transaction(TableSchema):
     comment: Optional[str] = field(default=None, metadata={"optional": True})
 
     def __post_init__(self):
-        self.date = day.fromisoformat(self.date)
-        if self.valuta:
+        if isinstance(self.date, str):
+            self.date = day.fromisoformat(self.date)
+        if self.valuta and isinstance(self.valuta, str):
             self.valuta = day.fromisoformat(self.valuta)
 
 
