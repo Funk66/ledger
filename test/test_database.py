@@ -1,14 +1,15 @@
+from pytest import fixture
 from datetime import date
 from sqlite3 import IntegrityError
 from litecli.main import SQLExecute  # type: ignore
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 
-from ledger.database import Table, TableSchema, Transaction
+from ledger.database import Table, Transaction, Tag, SQLite
 
 
 @dataclass
-class User(TableSchema):
+class User:
     email: str = field(metadata={"primary": True})
     age: int = field(metadata={"primary": True})
     score: Optional[float] = field(default=None, metadata={"optional": True})
@@ -24,13 +25,21 @@ class Users(Table):
 
 
 @dataclass
-class Item(TableSchema):
+class Item:
     id: int = field(metadata={"primary": True})
     user: str = field(metadata={"reference": Users})
 
 
 class Items(Table):
     schema = Item
+
+
+@fixture
+def db(stored_transactions: List[Transaction], stored_tags: List[Tag]) -> SQLite:
+    db = SQLite()
+    db.transactions.insert(stored_transactions)
+    db.tags.insert(stored_tags)
+    return db
 
 
 def test_create_table():
@@ -85,6 +94,18 @@ def test_insert():
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM users")
     assert [User(*row) for row in cursor.fetchall()] == data
+
+
+def test_distinct(db: SQLite, stored_transactions: List[Transaction]):
+    assert db.transactions.distinct("category") == {
+        transaction.category
+        for transaction in stored_transactions
+        if transaction.category
+    }
+
+
+def test_count(db: SQLite):
+    assert db.transactions.count() == 5
 
 
 def test_select():

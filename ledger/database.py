@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import date as day
 from functools import wraps
 from typing import (
+    Set,
     List,
     Any,
     Callable,
@@ -24,23 +25,17 @@ class SQLError(Exception):
     pass
 
 
-class TableSchema:
-    pass
-
-
-Row = TypeVar("Row", bound=TableSchema)
+Row = TypeVar("Row")
 
 
 class MetaTable(type):
-    def __new__(mcs, name, bases, namespace):
-        assert "name" not in namespace, "Do not use 'name' as a column"
-        namespace.update({"name": name.lower(), "columns": []})
-        return super().__new__(mcs, name, bases, namespace)
+    def __new__(mcs, name, bases, ns):
+        return super().__new__(mcs, name, bases, {**ns, **{"name": name.lower()}})
 
 
 class Table(Generic[Row], metaclass=MetaTable):
     name: str
-    schema: Type[TableSchema]
+    schema: Type[Row]
     columns: List[str]
     types: Dict[Any, str] = {str: "TEXT", int: "INTEGER", float: "FLOAT", day: "DATE"}
 
@@ -80,21 +75,40 @@ class Table(Generic[Row], metaclass=MetaTable):
         cursor.execute(sub(r"\s+", " ", command))
         return cursor.fetchall()
 
-    def select(self, order: str = None, limit: int = 0, **kwargs) -> List[Row]:
-        for kwarg in kwargs:
-            assert kwarg in self.columns, f"{kwarg} is not a valid column"
+    def select(
+        self, *args, order: str = None, direction: str = "ASC", limit: int = 0, **kwargs
+    ) -> List[Tuple[Any, ...]]:
+        for arg in args + tuple(kwargs.keys()):
+            assert arg in self.columns, f"{arg} is not a valid column"
         command = f"SELECT {', '.join(self.columns)} FROM {self.name}"
         if kwargs:
             command += " WHERE"
             for column, value in kwargs.items():
                 command += f" {column}='{value}'"
         if order:
-            command += " ORDER BY {order}"
+            assert direction in ["ASC", "DESC"], f"{direction} is not a valid direction"
+            command += f" ORDER BY {order} {direction}"
         if limit:
             command += f" LIMIT {limit}"
         cursor = self.connection.cursor()
         cursor.execute(command)
-        return [self.schema(*row) for row in cursor.fetchall()]
+        return cursor.fetchall()
+
+    def get_one(
+        self, order: str = None, direction: str = "ASC", **kwargs
+    ) -> Optional[Row]:
+        results = self.get_many(order=order, direction=direction, limit=1, **kwargs)
+        return results[0] if results else None
+
+    def get_many(
+        self, order: str = None, direction: str = "ASC", limit: int = 0, **kwargs
+    ) -> List[Row]:
+        return [
+            self.schema(*row)
+            for row in self.select(
+                order=order, direction=direction, limit=limit, **kwargs
+            )
+        ]
 
     def insert(self, data: List[Row]) -> None:
         cursor = self.connection.cursor()
@@ -103,17 +117,17 @@ class Table(Generic[Row], metaclass=MetaTable):
         cursor.executemany(f"INSERT INTO {self.name} VALUES ({columns})", rows)
         self.connection.commit()
 
-    def distinct(self, column: str) -> List[Any]:
+    def distinct(self, column: str) -> Set[Any]:
         assert column in self.columns, f"{column} is not a valid column"
         command = f"SELECT DISTINCT {column} FROM {self.name} WHERE {column}!=''"
-        return [row[0] for row in self.fetch(command)]
+        return {row[0] for row in self.fetch(command)}
 
     def count(self) -> int:
         return self.fetch(f"SELECT COUNT(rowid) FROM {self.name}")[0][0]
 
 
 @dataclass
-class Transaction(TableSchema):
+class Transaction:
     date: day = field(metadata={"primary": True})
     type: str
     subject: str
@@ -133,7 +147,7 @@ class Transaction(TableSchema):
             self.valuta = day.fromisoformat(self.valuta)
 
 
-class Transactions(Table):
+class Transactions(Table[Transaction]):
     schema = Transaction
 
     def check(self) -> None:
@@ -142,21 +156,21 @@ class Transactions(Table):
         assert count == rowid, "The last rowid does not match the total number of rows"
         for account in self.distinct("account"):
             previous = None
-            for transaction in self.select(account=account):
+            for transaction in self.select("value", "saldo", account=account):
                 if previous is not None:
                     assert (
-                        previous + transaction.value == transaction.saldo
-                    ), f"Error: {previous} + {transaction.value} != {transaction.saldo}"
-                previous = transaction[1]
+                        previous + transaction[0] == transaction[1]
+                    ), f"Error: {previous} + {transaction[0]} != {transaction[1]}"
+                previous = transaction[0]
 
 
-class Tag(TableSchema):
+@dataclass
+class Tag:
     name: str = field(metadata={"primary": True})
     transaction: str = field(metadata={"primary": True, "reference": Transactions})
 
 
-@dataclass
-class Tags(Table):
+class Tags(Table[Tag]):
     schema = Tag
 
 
