@@ -5,7 +5,7 @@ from typing import List, NamedTuple
 from yaml import safe_load
 
 from . import home
-from .entities import Transaction
+from .database import Transaction
 
 log = getLogger(__name__)
 
@@ -43,7 +43,7 @@ class Categorizer:
                         if transaction.category and \
                                 transaction.category != category:
                             log.warning(
-                                f"Transaction {transaction.hash} is already "
+                                f"Transaction {transaction.reference} is already "
                                 "categorized: {transaction.category} != {category}"
                             )
                         else:

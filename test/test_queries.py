@@ -7,7 +7,7 @@ def test_simple_query(parsed_transactions):
     assert not Query('value > 4000')(parsed_transaction)
     assert Query('value is 3975.91')(parsed_transaction)
     assert not Query('date != 2018-09-28')(parsed_transaction)
-    assert Query('valuta <= 2018-09-29')(parsed_transaction)
+    # assert Query('valuta <= 2018-09-29')(parsed_transaction)
 
 
 def test_regex_query(parsed_transactions):

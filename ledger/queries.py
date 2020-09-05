@@ -4,7 +4,7 @@ from datetime import date
 from typing import TypeVar, Type, Any, Callable, Union, List
 from functools import partial
 
-from .entities import Transaction
+from .database import Transaction
 from .utils import isodate
 
 

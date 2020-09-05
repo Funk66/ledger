@@ -2,7 +2,7 @@ from datetime import datetime
 from csv import reader
 from typing import List
 
-from ledger.entities import Transaction
+from ledger.database import Transaction
 
 
 def date(value):

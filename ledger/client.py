@@ -6,23 +6,20 @@ from IPython import start_ipython  # type: ignore
 from traitlets.config import Config  # type: ignore
 
 from .categories import Categorizer
-from .database import Client
+from .database import SQLite
 from .parsers import parsers
-from .store import Store
 
 
 def parse(filename: str, bank: str):
     transactions = parsers[bank](filename)
+    db = SQLite()
+    db.load()
     categorizer = Categorizer()
     categorizer(transactions)
-    store = Store()
-    store.extend(transactions)
-    store.check()
-    store.save()
 
 
 def sql():
-    client = Client()
+    client = SQLite()
     client.load()
     client.prompt()
 
@@ -56,7 +53,7 @@ def run():
     arguments = parser.parse_args()
 
     if arguments.command == 'parse':
-        basicConfig(level=DEBUG if arguments.verbose else INFO)
+        basicConfig(level=DEBUG if arguments.verbose else INFO, format='%(message)s')
         parse(arguments.filename, arguments.bank)
     elif arguments.command == 'sql':
         sql()
