@@ -1,10 +1,13 @@
 from pytest import fixture, raises  # type: ignore
+from pathlib import Path
 from dataclasses import astuple
 from random import choice
 from datetime import date
 from sqlite3 import IntegrityError
 from litecli.main import SQLExecute  # type: ignore
 from dataclasses import dataclass, field
+from tempfile import TemporaryDirectory
+from filecmp import dircmp
 from typing import Optional, List
 
 from ledger.database import Table, Transaction, Tag, SQLite
@@ -38,7 +41,7 @@ class Items(Table):
 
 @fixture
 def db(stored_transactions: List[Transaction], stored_tags: List[Tag]) -> SQLite:
-    db = SQLite()
+    db = SQLite(Path(__file__).parent / 'data')
     db.transactions.add_many(stored_transactions)
     db.tags.add_many(stored_tags)
     return db
@@ -145,3 +148,23 @@ def test_get_many(db: SQLite, stored_transactions: List[Transaction]):
         db.transactions.get_many(date="2015-06-05", order="rowid")
         == stored_transactions[2:]
     )
+
+
+def test_check_transactions(db: SQLite):
+    db.transactions.check()
+
+
+def test_load(stored_transactions: List[Transaction], stored_tags: List[Tag]):
+    db = SQLite(Path(__file__).parent / 'data')
+    db.load()
+    tr = db.transactions.get_many()
+    assert tr == stored_transactions
+    assert db.tags.get_many() == stored_tags
+
+
+def test_save(db: SQLite):
+    path = db.path
+    with TemporaryDirectory() as tmp_dir:
+        db.path = Path(tmp_dir)
+        db.save()
+        dircmp(str(path), tmp_dir)

@@ -125,6 +125,7 @@ def stored_transactions() -> List[Transaction]:
             value=-20.56,
             saldo=4698.54,
             account="ingdiba",
+            category="holidays:family",
         ),
         Transaction(
             date=date(2015, 6, 5),
@@ -136,6 +137,7 @@ def stored_transactions() -> List[Transaction]:
             saldo=4669.19,
             account="ingdiba",
             category="groceries:food",
+            comment="Pending for confirmation",
         ),
     ]
 

@@ -1,6 +1,6 @@
 import logging
 from re import sub
-from csv import reader
+from csv import reader, writer
 from pathlib import Path
 from datetime import date as day
 from functools import wraps
@@ -19,6 +19,8 @@ from typing import (
 from dataclasses import dataclass, field, astuple
 
 from litecli.main import SQLExecute  # type: ignore
+
+from . import __version__
 
 
 Row = TypeVar("Row")
@@ -78,7 +80,7 @@ class Table(Generic[Row], metaclass=MetaTable):
     def select(
         self, *args, order: str = None, direction: str = "ASC", limit: int = 0, **kwargs
     ) -> List[Tuple[Any, ...]]:
-        all_columns = ['rowid'] + self.columns
+        all_columns = ["rowid"] + self.columns
         for arg in args + tuple(kwargs.keys()):
             assert arg in all_columns, f"{arg} is not a valid column"
         columns = '", "'.join(args or self.columns)
@@ -101,7 +103,6 @@ class Table(Generic[Row], metaclass=MetaTable):
         cursor = self.connection.cursor()
         columns = ", ".join(["?"] * len(self.columns))
         cursor.executemany(f"INSERT INTO {self.name} VALUES ({columns})", data)
-        self.connection.commit()
 
     def get_one(
         self, order: str = None, direction: str = "ASC", **kwargs
@@ -144,9 +145,9 @@ class Transaction:
     saldo: float = field(metadata={"primary": True})
     account: str = field(metadata={"primary": True})
     valuta: Optional[day] = field(default=None, metadata={"optional": True})
-    category: Optional[str] = field(default=None, metadata={"optional": True})
-    location: Optional[str] = field(default=None, metadata={"optional": True})
-    comment: Optional[str] = field(default=None, metadata={"optional": True})
+    category: Optional[str] = field(default='', metadata={"optional": True})
+    location: Optional[str] = field(default='', metadata={"optional": True})
+    comment: Optional[str] = field(default='', metadata={"optional": True})
 
     def __post_init__(self):
         if isinstance(self.date, str):
@@ -164,12 +165,13 @@ class Transactions(Table[Transaction]):
         assert count == rowid, "The last rowid does not match the total number of rows"
         for account in self.distinct("account"):
             previous = None
-            for transaction in self.select("value", "saldo", account=account):
+            transactions = self.select("value", "saldo", order="rowid", account=account)
+            for transaction in transactions:
                 if previous is not None:
                     assert (
                         previous + transaction[0] == transaction[1]
                     ), f"Error: {previous} + {transaction[0]} != {transaction[1]}"
-                previous = transaction[0]
+                previous = transaction[1]
 
 
 @dataclass
@@ -183,27 +185,28 @@ class Tags(Table[Tag]):
 
 
 class SQLite:
-    def __init__(self, filename: str = ":memory:"):
+    def __init__(self, path: Path = Path.home() / ".config/ledger"):
+        self.path = path
         self.dirty = False
-        self.sqlexecute = SQLExecute(filename)
+        self.sqlexecute = SQLExecute(":memory:")
         self.sqlexecute.run = tripwire(self.sqlexecute.run, self)
         self.transactions = Transactions(self.sqlexecute.conn)
         self.tags = Tags(self.sqlexecute.conn)
-        self.sqlexecute.conn.commit()
 
-    def check(self) -> None:
-        """ Check the database version """
-        pass
-        # with open(path / "version"):
-            # pass
-
-    def load(self, path: Path) -> None:
+    def load(self) -> None:
+        with open(self.path / "version") as version_file:
+            version = version_file.readline().strip()
+            if version != __version__:
+                raise RuntimeError(f"Running v{__version__} != database v{version}")
         for table in ["transactions", "tags"]:
-            with open(path / f"{table}.csv", encoding="latin-1") as csvfile:
+            with open(self.path / f"{table}.csv", encoding="latin-1") as csvfile:
                 getattr(self, table).insert(reader(csvfile))
 
-    def save(self, path: Path) -> None:
-        pass
+    def save(self) -> None:
+        for table in ["transactions", "tags"]:
+            with open(self.path / f"{table}.csv", 'w', encoding="latin-1") as output:
+                csvfile = writer(output)
+                csvfile.writerows(getattr(self, table).select())
 
 
 def tripwire(run: Callable[[str], "SQLResponse"], client: SQLite):
