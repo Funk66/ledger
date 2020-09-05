@@ -97,6 +97,12 @@ class Table(Generic[Row], metaclass=MetaTable):
         cursor.execute(command)
         return cursor.fetchall()
 
+    def insert(self, data: List[Tuple[Any, ...]]) -> None:
+        cursor = self.connection.cursor()
+        columns = ", ".join(["?"] * len(self.columns))
+        cursor.executemany(f"INSERT INTO {self.name} VALUES ({columns})", data)
+        self.connection.commit()
+
     def get_one(
         self, order: str = None, direction: str = "ASC", **kwargs
     ) -> Optional[Row]:
@@ -113,12 +119,11 @@ class Table(Generic[Row], metaclass=MetaTable):
             )
         ]
 
-    def insert(self, data: List[Row]) -> None:
-        cursor = self.connection.cursor()
-        columns = ", ".join(["?"] * len(self.columns))
-        rows = [astuple(row) for row in data]
-        cursor.executemany(f"INSERT INTO {self.name} VALUES ({columns})", rows)
-        self.connection.commit()
+    def add_one(self, row: Row) -> None:
+        self.add_many([row])
+
+    def add_many(self, rows: List[Row]) -> None:
+        self.insert([astuple(row) for row in rows])
 
     def distinct(self, column: str) -> Set[Any]:
         assert column in self.columns, f"{column} is not a valid column"
@@ -186,9 +191,15 @@ class SQLite:
         self.tags = Tags(self.sqlexecute.conn)
         self.sqlexecute.conn.commit()
 
+    def check(self) -> None:
+        """ Check the database version """
+        pass
+        # with open(path / "version"):
+            # pass
+
     def load(self, path: Path) -> None:
         for table in ["transactions", "tags"]:
-            with open(path / "transactions.csv", encoding="latin-1") as csvfile:
+            with open(path / f"{table}.csv", encoding="latin-1") as csvfile:
                 getattr(self, table).insert(reader(csvfile))
 
     def save(self, path: Path) -> None:

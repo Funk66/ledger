@@ -39,8 +39,8 @@ class Items(Table):
 @fixture
 def db(stored_transactions: List[Transaction], stored_tags: List[Tag]) -> SQLite:
     db = SQLite()
-    db.transactions.insert(stored_transactions)
-    db.tags.insert(stored_tags)
+    db.transactions.add_many(stored_transactions)
+    db.tags.add_many(stored_tags)
     return db
 
 
@@ -89,14 +89,14 @@ def test_transaction_schema():
     assert transaction.valuta is None
 
 
-def test_insert():
+def test_add_many():
     data = [
         User("john@smith.com", 21, 3248.13, date(1999, 7, 3)),
         User("ada@lovelace.is", 135),
     ]
     connection = SQLExecute(":memory:").conn
     users = Users(connection)
-    users.insert(data)
+    users.add_many(data)
     cursor = connection.cursor()
     cursor.execute("SELECT * FROM users")
     assert [User(*row) for row in cursor.fetchall()] == data
@@ -118,10 +118,10 @@ def test_duplicates(
     db: SQLite, stored_transactions: List[Transaction], stored_tags: List[Tag]
 ):
     with raises(IntegrityError) as error:
-        db.tags.insert([choice(stored_tags)])
+        db.tags.add_one(choice(stored_tags))
     assert str(error.value).startswith("UNIQUE constraint failed")
     with raises(IntegrityError) as error:
-        db.transactions.insert([choice(stored_transactions)])
+        db.transactions.add_one(choice(stored_transactions))
 
 
 def test_select(db: SQLite, stored_tags: List[Tag]):
