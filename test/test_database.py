@@ -1,4 +1,6 @@
-from pytest import fixture
+from pytest import fixture, raises  # type: ignore
+from dataclasses import astuple
+from random import choice
 from datetime import date
 from sqlite3 import IntegrityError
 from litecli.main import SQLExecute  # type: ignore
@@ -40,6 +42,10 @@ def db(stored_transactions: List[Transaction], stored_tags: List[Tag]) -> SQLite
     db.transactions.insert(stored_transactions)
     db.tags.insert(stored_tags)
     return db
+
+
+def test_table_class():
+    assert Users.columns == ["email", "age", "score", "birthday"]
 
 
 def test_create_table():
@@ -108,5 +114,34 @@ def test_count(db: SQLite):
     assert db.transactions.count() == 5
 
 
-def test_select():
-    pass
+def test_duplicates(
+    db: SQLite, stored_transactions: List[Transaction], stored_tags: List[Tag]
+):
+    with raises(IntegrityError) as error:
+        db.tags.insert([choice(stored_tags)])
+    assert str(error.value).startswith("UNIQUE constraint failed")
+    with raises(IntegrityError) as error:
+        db.transactions.insert([choice(stored_transactions)])
+
+
+def test_select(db: SQLite, stored_tags: List[Tag]):
+    rows = [astuple(tag) for tag in stored_tags]
+    assert db.tags.select() == rows
+    assert db.tags.select("name") == [(tag.name,) for tag in stored_tags]
+    assert db.tags.select(order="rowid", direction="DESC") == rows[::-1]
+    assert db.tags.select(limit=1) == rows[:1]
+    assert db.tags.select(rowid=1) == rows[:1]
+
+
+def test_get_one(db: SQLite, stored_transactions: List[Transaction]):
+    assert db.transactions.get_one() == stored_transactions[0]
+    assert db.transactions.get_one(rowid=3) == stored_transactions[2]
+    assert db.transactions.get_one(order="saldo") == stored_transactions[-1]
+
+
+def test_get_many(db: SQLite, stored_transactions: List[Transaction]):
+    assert db.transactions.get_many() == stored_transactions
+    assert (
+        db.transactions.get_many(date="2015-06-05", order="rowid")
+        == stored_transactions[2:]
+    )

@@ -21,16 +21,16 @@ from dataclasses import dataclass, field, astuple
 from litecli.main import SQLExecute  # type: ignore
 
 
-class SQLError(Exception):
-    pass
-
-
 Row = TypeVar("Row")
 
 
 class MetaTable(type):
     def __new__(mcs, name, bases, ns):
-        return super().__new__(mcs, name, bases, {**ns, **{"name": name.lower()}})
+        if name != "Table":
+            assert "schema" in ns, f"Must define a schema for Table {name}"
+            columns = [column for column in ns["schema"].__annotations__]
+            ns.update(name=name.lower(), columns=columns)
+        return super().__new__(mcs, name, bases, ns)
 
 
 class Table(Generic[Row], metaclass=MetaTable):
@@ -78,16 +78,19 @@ class Table(Generic[Row], metaclass=MetaTable):
     def select(
         self, *args, order: str = None, direction: str = "ASC", limit: int = 0, **kwargs
     ) -> List[Tuple[Any, ...]]:
+        all_columns = ['rowid'] + self.columns
         for arg in args + tuple(kwargs.keys()):
-            assert arg in self.columns, f"{arg} is not a valid column"
-        command = f"SELECT {', '.join(self.columns)} FROM {self.name}"
+            assert arg in all_columns, f"{arg} is not a valid column"
+        columns = '", "'.join(args or self.columns)
+        command = f'SELECT "{columns}" FROM {self.name}'
         if kwargs:
             command += " WHERE"
             for column, value in kwargs.items():
                 command += f" {column}='{value}'"
         if order:
+            assert order in all_columns, f"{order} is not a valid column"
             assert direction in ["ASC", "DESC"], f"{direction} is not a valid direction"
-            command += f" ORDER BY {order} {direction}"
+            command += f' ORDER BY "{order}" {direction}'
         if limit:
             command += f" LIMIT {limit}"
         cursor = self.connection.cursor()
@@ -167,7 +170,7 @@ class Transactions(Table[Transaction]):
 @dataclass
 class Tag:
     name: str = field(metadata={"primary": True})
-    transaction: str = field(metadata={"primary": True, "reference": Transactions})
+    transaction: int = field(metadata={"primary": True, "reference": Transactions})
 
 
 class Tags(Table[Tag]):

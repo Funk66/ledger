@@ -139,6 +139,12 @@ def stored_transactions() -> List[Transaction]:
         ),
     ]
 
+
 @fixture
 def stored_tags() -> List[Tag]:
-    return []
+    return [
+        Tag(name="weekend", transaction=1),
+        Tag(name="family", transaction=3),
+        Tag(name="weekend", transaction=3),
+        Tag(name="work", transaction=2),
+    ]
