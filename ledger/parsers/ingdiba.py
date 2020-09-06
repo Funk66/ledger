@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from csv import reader
 from typing import List
 
@@ -13,7 +14,7 @@ def number(value):
     return float(value.replace('.', '').replace(',', '.'))
 
 
-def read(filename: str) -> List[Transaction]:
+def read(filename: Path, account: str = 'ingdiba') -> List[Transaction]:
     transactions = []
     with open(filename, encoding='latin-1') as csvfile:
         data = reader(csvfile, delimiter=';')
@@ -26,7 +27,7 @@ def read(filename: str) -> List[Transaction]:
                 reference=values[4].strip(),
                 saldo=number(values[5]),
                 value=number(values[7]),
-                account='ingdiba'
+                account=account,
             ))
     return transactions
 

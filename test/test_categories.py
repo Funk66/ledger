@@ -19,6 +19,6 @@ def test_parse(categorizer):
 
 def test_apply(categorizer, parsed_transactions):
     categorizer(parsed_transactions)
-    assert parsed_transactions[0].category == 'work'
-    assert parsed_transactions[1].category == ''
-    assert parsed_transactions[2].category == 'lodging:hotels'
+    assert parsed_transactions[2].category == 'work'
+    assert parsed_transactions[3].category == ''
+    assert parsed_transactions[4].category == 'lodging:hotels'

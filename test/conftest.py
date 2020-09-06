@@ -1,8 +1,17 @@
 from datetime import date
+from pathlib import Path
 from typing import List
 from pytest import fixture
 
-from ledger.database import Transaction, Tag
+from ledger.database import Transaction, Tag, SQLite
+
+
+@fixture
+def db(stored_transactions: List[Transaction], stored_tags: List[Tag]) -> SQLite:
+    db = SQLite(Path(__file__).parent / "data")
+    db.transactions.add_many(stored_transactions)
+    db.tags.add_many(stored_tags)
+    return db
 
 
 @fixture
@@ -19,62 +28,6 @@ def transaction() -> Transaction:
         category="work:freelancing",
         comment="Code update",
     )
-
-
-@fixture
-def parsed_transactions() -> List[Transaction]:
-    return [
-        Transaction(
-            date=date(2018, 9, 28),
-            valuta=date(2018, 9, 28),
-            subject="GitHub Inc.",
-            type="income",
-            reference="Payroll 09/2018",
-            value=3975.91,
-            saldo=4308.68,
-            account="ingdiba",
-        ),
-        Transaction(
-            date=date(2018, 10, 1),
-            valuta=date(2018, 10, 1),
-            subject="RedBull Global Group",
-            type="payment",
-            reference="Travel expenses 01.10 - 31.10.18",
-            value=-19.9,
-            saldo=4288.78,
-            account="ingdiba",
-        ),
-        Transaction(
-            date=date(2018, 10, 1),
-            valuta=date(2018, 10, 1),
-            subject="NH Hotels",
-            type="payment",
-            reference="5428719643 / 50738927",
-            value=-484.9,
-            saldo=3803.88,
-            account="ingdiba",
-        ),
-        Transaction(
-            date=date(2018, 10, 1),
-            valuta=date(2018, 10, 1),
-            subject="John Smith",
-            type="income auto",
-            reference="Payback",
-            value=100.0,
-            saldo=3903.88,
-            account="ingdiba",
-        ),
-        Transaction(
-            date=date(2018, 10, 2),
-            valuta=date(2018, 10, 2),
-            subject="DB Vertrieb GmbH",
-            type="payment",
-            reference="DB AUTOMAT//BERLIN-SCHOENEF.",
-            value=-3.2,
-            saldo=3900.68,
-            account="ingdiba",
-        ),
-    ]
 
 
 @fixture
@@ -149,4 +102,80 @@ def stored_tags() -> List[Tag]:
         Tag(name="family", transaction=3),
         Tag(name="weekend", transaction=3),
         Tag(name="work", transaction=2),
+    ]
+
+
+@fixture
+def parsed_transactions() -> List[Transaction]:
+    return [
+        Transaction(
+            date=date(2015, 6, 5),
+            valuta=date(2015, 6, 5),
+            type="payment",
+            subject="WOOLWORTH GMBH FIL  1100*DE",
+            reference="EC 61264178 040615181722OC1  64AEE4884DF7559D40FE092777",
+            value=-20.56,
+            saldo=4698.54,
+            account="ingdiba",
+        ),
+        Transaction(
+            date=date(2015, 6, 5),
+            valuta=date(2015, 6, 5),
+            type="payment",
+            subject="REWE SAGT DANKE. 42655603",
+            reference="EC 56018807 040615191727OC1  A52357E244DF469380259F5C3F",
+            value=-29.35,
+            saldo=4669.19,
+            account="ingdiba",
+        ),
+        Transaction(
+            date=date(2015, 9, 28),
+            valuta=date(2015, 9, 28),
+            subject="GitHub Inc.",
+            type="income",
+            reference="Payroll 09/2015",
+            value=3975.91,
+            saldo=8645.1,
+            account="ingdiba",
+        ),
+        Transaction(
+            date=date(2015, 10, 1),
+            valuta=date(2015, 10, 1),
+            subject="RedBull Global Group",
+            type="payment",
+            reference="Travel expenses 01.10 - 31.10.18",
+            value=-19.9,
+            saldo=8625.2,
+            account="ingdiba",
+        ),
+        Transaction(
+            date=date(2015, 10, 1),
+            valuta=date(2015, 10, 1),
+            subject="NH Hotels",
+            type="payment",
+            reference="5428719643 / 50738927",
+            value=-484.9,
+            saldo=8140.3,
+            account="ingdiba",
+        ),
+        Transaction(
+            date=date(2015, 10, 1),
+            valuta=date(2015, 10, 1),
+            subject="John Smith",
+            type="income auto",
+            reference="Payback",
+            value=100.0,
+            saldo=8240.3,
+            account="ingdiba",
+        ),
+        Transaction(
+            date=date(2015, 10, 2),
+            valuta=date(2015, 10, 2),
+            subject="DB Vertrieb GmbH",
+            type="payment",
+            reference="DB AUTOMAT//BERLIN-SCHOENEF.",
+            value=-3.2,
+            saldo=8237.1,
+            account="ingdiba",
+        ),
     ]

@@ -39,14 +39,6 @@ class Items(Table):
     schema = Item
 
 
-@fixture
-def db(stored_transactions: List[Transaction], stored_tags: List[Tag]) -> SQLite:
-    db = SQLite(Path(__file__).parent / 'data')
-    db.transactions.add_many(stored_transactions)
-    db.tags.add_many(stored_tags)
-    return db
-
-
 def test_table_class():
     assert Users.columns == ["email", "age", "score", "birthday"]
 

@@ -1,4 +1,4 @@
-import logging
+from logging import getLogger
 from re import sub
 from csv import reader, writer
 from pathlib import Path
@@ -145,9 +145,9 @@ class Transaction:
     saldo: float = field(metadata={"primary": True})
     account: str = field(metadata={"primary": True})
     valuta: Optional[day] = field(default=None, metadata={"optional": True})
-    category: Optional[str] = field(default='', metadata={"optional": True})
-    location: Optional[str] = field(default='', metadata={"optional": True})
-    comment: Optional[str] = field(default='', metadata={"optional": True})
+    category: Optional[str] = field(default="", metadata={"optional": True})
+    location: Optional[str] = field(default="", metadata={"optional": True})
+    comment: Optional[str] = field(default="", metadata={"optional": True})
 
     def __post_init__(self):
         if isinstance(self.date, str):
@@ -155,21 +155,31 @@ class Transaction:
         if self.valuta and isinstance(self.valuta, str):
             self.valuta = day.fromisoformat(self.valuta)
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, Transaction):
+            return False
+        return (self.date, self.value, self.saldo, self.account) == (
+            other.date,
+            other.value,
+            other.saldo,
+            other.account,
+        )
+
 
 class Transactions(Table[Transaction]):
     schema = Transaction
 
-    def check(self) -> None:
+    def check(self, account: str = None) -> None:
         count = self.fetch(f"SELECT COUNT(rowid) FROM {self.name}")
         rowid = self.fetch(f"SELECT rowid FROM {self.name} ORDER BY rowid DESC LIMIT 1")
         assert count == rowid, "The last rowid does not match the total number of rows"
-        for account in self.distinct("account"):
+        for account in [account] or self.distinct("account"):
             previous = None
             transactions = self.select("value", "saldo", order="rowid", account=account)
             for transaction in transactions:
                 if previous is not None:
                     assert (
-                        previous + transaction[0] == transaction[1]
+                        round(previous + transaction[0], 2) == transaction[1]
                     ), f"Error: {previous} + {transaction[0]} != {transaction[1]}"
                 previous = transaction[1]
 
@@ -204,7 +214,7 @@ class SQLite:
 
     def save(self) -> None:
         for table in ["transactions", "tags"]:
-            with open(self.path / f"{table}.csv", 'w', encoding="latin-1") as output:
+            with open(self.path / f"{table}.csv", "w", encoding="latin-1") as output:
                 csvfile = writer(output)
                 csvfile.writerows(getattr(self, table).select())
 
@@ -222,4 +232,3 @@ def tripwire(run: Callable[[str], "SQLResponse"], client: SQLite):
 SQLResponse = Tuple[
     Optional[str], Optional[List[Tuple[Any]]], Optional[Tuple[str]], Optional[str]
 ]
-log = logging.getLogger(__name__)

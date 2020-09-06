@@ -43,8 +43,8 @@ class Categorizer:
                         if transaction.category and \
                                 transaction.category != category:
                             log.warning(
-                                f"Transaction {transaction.reference} is already "
-                                "categorized: {transaction.category} != {category}"
+                                f"Transaction {transaction.subject} is already "
+                                "categorized as {transaction.category}, not {category}"
                             )
                         else:
                             transaction.category = category.name
