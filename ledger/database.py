@@ -18,9 +18,9 @@ from typing import (
 )
 from dataclasses import dataclass, field, astuple
 
-from litecli.main import SQLExecute  # type: ignore
+from litecli.main import LiteCli, SQLExecute  # type: ignore
 
-from . import __version__
+from . import home, __version__
 
 
 Row = TypeVar("Row")
@@ -158,12 +158,15 @@ class Transaction:
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, Transaction):
             return False
-        return (self.date, self.value, self.saldo, self.account) == (
-            other.date,
-            other.value,
-            other.saldo,
-            other.account,
-        )
+        return other.hash == self.hash
+
+    @property
+    def hash(self):
+        return {
+            key: getattr(self, key)
+            for key, field in self.__dataclass_fields__.items()
+            if field.metadata.get("primary")
+        }
 
 
 class Transactions(Table[Transaction]):
@@ -182,6 +185,14 @@ class Transactions(Table[Transaction]):
                         round(previous + transaction[0], 2) == transaction[1]
                     ), f"Error: {previous} + {transaction[0]} != {transaction[1]}"
                 previous = transaction[1]
+
+    def categorize(self, transaction: Transaction, category: str) -> None:
+        cursor = self.connection.cursor()
+        condition = [f"{column}='{value}'" for column, value in transaction.hash.items()]
+        cursor.execute(
+            f"UPDATE transactions SET category='{category}' "
+            f"WHERE {' AND '.join(condition)}"
+        )
 
 
 @dataclass
@@ -213,10 +224,17 @@ class SQLite:
                 getattr(self, table).insert(reader(csvfile))
 
     def save(self) -> None:
+        log.info("Saving data")
         for table in ["transactions", "tags"]:
             with open(self.path / f"{table}.csv", "w", encoding="latin-1") as output:
                 csvfile = writer(output)
                 csvfile.writerows(getattr(self, table).select())
+
+    def prompt(self) -> None:
+        lite_cli = LiteCli(sqlexecute=self.sqlexecute, liteclirc=home / "config")
+        lite_cli.run_cli()
+        if self.dirty and input("Save? ") == "y":
+            self.save()
 
 
 def tripwire(run: Callable[[str], "SQLResponse"], client: SQLite):
@@ -232,3 +250,4 @@ def tripwire(run: Callable[[str], "SQLResponse"], client: SQLite):
 SQLResponse = Tuple[
     Optional[str], Optional[List[Tuple[Any]]], Optional[Tuple[str]], Optional[str]
 ]
+log = getLogger(__name__)

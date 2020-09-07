@@ -82,6 +82,12 @@ def test_transaction_schema():
     )
     assert transaction.date == date(2020, 2, 3)
     assert transaction.valuta is None
+    assert transaction.hash == {
+        "date": date(2020, 2, 3),
+        "value": 123,
+        "saldo": 321,
+        "account": "bank",
+    }
 
 
 def test_add_many():
@@ -107,6 +113,11 @@ def test_distinct(db: SQLite, stored_transactions: List[Transaction]):
 
 def test_count(db: SQLite):
     assert db.transactions.count() == 5
+
+
+def test_categorize(db: SQLite, stored_transactions: List[Transaction]):
+    db.transactions.categorize(stored_transactions[0], 'test:category')
+    assert db.transactions.get_one(category='test:category') == stored_transactions[0]
 
 
 def test_duplicates(
@@ -147,7 +158,7 @@ def test_check_transactions(db: SQLite):
 
 
 def test_load(stored_transactions: List[Transaction], stored_tags: List[Tag]):
-    db = SQLite(Path(__file__).parent / 'data')
+    db = SQLite(Path(__file__).parent / "data")
     db.load()
     tr = db.transactions.get_many()
     assert tr == stored_transactions

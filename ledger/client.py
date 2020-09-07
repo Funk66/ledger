@@ -1,6 +1,8 @@
+from sys import stdout
 from argparse import ArgumentParser
 from logging import DEBUG, INFO, basicConfig, getLogger
 from pathlib import Path
+from colorful import red, green, grey, bold, yellow  # type: ignore
 
 from IPython import start_ipython  # type: ignore
 from traitlets.config import Config  # type: ignore
@@ -29,10 +31,48 @@ def parse(filename: Path, bank: str, account: str = None) -> None:
     db.save()
 
 
+def categorize() -> None:
+    db = SQLite()
+    db.load()
+    categories = db.transactions.distinct("category")
+    transactions = db.transactions.get_many(category="", order="date", direction="DESC")
+    print(f"{len(transactions)} transactions uncategorized")
+    while transactions:
+        transaction = transactions.pop()
+        print(
+            f"{green(transaction.date)} {bold(transaction.subject)} "
+            f"{grey(transaction.reference)} {yellow(transaction.value)}"
+        )
+        try:
+            substr = input(">>> ").strip()
+        except EOFError:
+            if input("Save changes? ") == "y":
+                db.save()
+            return
+        if substr in categories:
+            category = substr
+        elif (matches := [category for category in categories if substr in category]):
+            if len(matches) == 1:
+                category = matches[0]
+            else:
+                print(red("Matches: ") + ", ".join(matches))
+                transactions.append(transaction)
+                continue
+        else:
+            if input("New category? ") != "y":
+                transactions.append(transaction)
+                continue
+            category = substr
+            categories.add(category)
+        stdout.write(f"\x1b[1A\x1b[2K{category}\n")
+        db.transactions.categorize(transaction, category)
+    db.save()
+
+
 def sql():
-    client = SQLite()
-    client.load()
-    client.prompt()
+    db = SQLite()
+    db.load()
+    db.prompt()
 
 
 def shell():
@@ -60,12 +100,13 @@ def run():
     parse_command.add_argument("filename", type=Path, help="CSV file to parse")
     parse_command.add_argument("-a", "--account", help="Account to add transactions to")
     parse_command.add_argument(
-        "-b", "--bank", choice=["ingdiba"], help="CSV file format"
+        "-b", "--bank", choices=["ingdiba"], help="CSV file format"
     )
     sql_command = subparser.add_parser("sql")
     sql_subparser = sql_command.add_subparsers(dest="subcommand")
     sql_export_command = sql_subparser.add_parser("export")
-    sql_export_command.add_argument("filename")
+    sql_export_command.add_argument("filename", type=Path, help="Output filename")
+    subparser.add_parser("categorize")
     arguments = parser.parse_args()
 
     if arguments.command == "parse":
@@ -73,6 +114,8 @@ def run():
         parse(arguments.filename, arguments.bank, arguments.account or arguments.bank)
     elif arguments.command == "sql":
         sql()
+    elif arguments.command == "categorize":
+        categorize()
     else:
         shell()
 
