@@ -24,9 +24,9 @@ def read(filename: Path, account: str = 'ingdiba') -> List[Transaction]:
                 valuta=date(values[1]),
                 type=types[values[3]],
                 subject=values[2].strip(),
-                reference=values[4].strip(),
-                saldo=number(values[5]),
-                value=number(values[7]),
+                reference=values[5].strip(),
+                saldo=number(values[6]),
+                value=number(values[8]),
                 account=account,
             ))
     return transactions
