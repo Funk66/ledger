@@ -49,7 +49,7 @@ class Table(Generic[Row], metaclass=MetaTable):
         foreign_key = ""
         for column, attrs in self.schema.__dataclass_fields__.items():
             self.columns.append(column)
-            if str(attrs.type).startswith("typing.Union"):
+            if str(attrs.type).startswith("typing.Optional"):
                 kind = attrs.type.__args__[0]
             else:
                 kind = attrs.type
