@@ -1,17 +1,9 @@
-from datetime import datetime
 from pathlib import Path
 from csv import reader
 from typing import List
 
+from ledger.utils import str2date, str2float
 from ledger.database import Transaction
-
-
-def date(value):
-    return datetime.strptime(value, '%d.%m.%Y').date()
-
-
-def number(value):
-    return float(value.replace('.', '').replace(',', '.'))
 
 
 def read(filename: Path, account: str = 'ingdiba') -> List[Transaction]:
@@ -20,13 +12,13 @@ def read(filename: Path, account: str = 'ingdiba') -> List[Transaction]:
         data = reader(csvfile, delimiter=';')
         for values in reversed(list(data)):
             transactions.append(Transaction(
-                date=date(values[0]),
-                valuta=date(values[1]),
+                date=str2date(values[0]),
+                valuta=str2date(values[1]),
                 type=types[values[3]],
                 subject=values[2].strip(),
                 reference=values[5].strip(),
-                saldo=number(values[6]),
-                value=number(values[8]),
+                saldo=str2float(values[6]),
+                value=str2float(values[8]),
                 account=account,
             ))
     return transactions
