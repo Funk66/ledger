@@ -11,7 +11,7 @@ log = getLogger(__name__)
 
 
 class Version(tuple):
-    def __new__(self, version: str):
+    def __new__(cls, version: str):
         return tuple.__new__(Version, [int(n) for n in version.split(".")])
 
     def __repr__(self) -> str:

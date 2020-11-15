@@ -20,9 +20,13 @@ def parse(filename: Path, bank: str, account: str = None) -> None:
     last_transaction = db.transactions.get_one(
         account=account, order="rowid", direction="DESC"
     )
-    assert last_transaction, f"No last transaction found for {account}"
-    new_transactions = transactions[transactions.index(last_transaction)+1:]
-    assert len(new_transactions) < len(transactions), "No matching transaction found"
+    if last_transaction:
+        new_transactions = transactions[transactions.index(last_transaction)+1:]
+        assert len(new_transactions) < len(
+            transactions
+        ), "No matching transaction found"
+    else:
+        new_transactions = transactions
     log.info(f"Parsed {len(new_transactions)} new transactions")
     categorizer = Categorizer()
     categorizer(new_transactions)
@@ -100,7 +104,7 @@ def run():
     parse_command.add_argument("filename", type=Path, help="CSV file to parse")
     parse_command.add_argument("-a", "--account", help="Account to add transactions to")
     parse_command.add_argument(
-        "-b", "--bank", choices=["ingdiba"], help="CSV file format"
+        "-b", "--bank", choices=parsers.keys(), help="CSV file format"
     )
     sql_command = subparser.add_parser("sql")
     sql_subparser = sql_command.add_subparsers(dest="subcommand")

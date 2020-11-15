@@ -21,7 +21,6 @@ from dataclasses import dataclass, field, astuple
 from litecli.main import LiteCli, SQLExecute  # type: ignore
 
 from . import home, __version__
-from .utils import Time
 
 
 Row = TypeVar("Row")
@@ -45,7 +44,6 @@ class Table(Generic[Row], metaclass=MetaTable):
         int: "INTEGER",
         float: "FLOAT",
         day: "DATE",
-        Time: "TEXT",
     }
 
     def __init__(self, connection):
@@ -152,7 +150,7 @@ class Transaction:
     saldo: float = field(metadata={"primary": True})
     account: str = field(metadata={"primary": True})
     valuta: Optional[day] = field(default=None, metadata={"optional": True})
-    time: Optional[Time] = field(default=None, metadata={"optional": True})
+    time: Optional[str] = field(default="", metadata={"optional": True})
     category: Optional[str] = field(default="", metadata={"optional": True})
     location: Optional[str] = field(default="", metadata={"optional": True})
     comment: Optional[str] = field(default="", metadata={"optional": True})
