@@ -5,7 +5,7 @@ from pathlib import Path
 __author__ = "Guillermo Guirao Aguilar"
 __email__ = "contact@guillermoguiraoaguilar.com"
 __license__ = "MIT"
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 
 log = getLogger('ledger')
