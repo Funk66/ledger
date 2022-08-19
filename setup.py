@@ -14,7 +14,7 @@ setup(name='ledger',
       author='Guillermo Guirao Aguilar',
       author_email='contact@guillermoguiraoaguilar.com',
       url='https://github.com/Funk66/ledger',
-      classifiers=['Programming Language :: Python :: 3.9'],
+      classifiers=['Programming Language :: Python :: 3.10'],
       install_requires=['litecli', 'pyyaml', 'colorful', 'IPython'],
       entry_points={
           'console_scripts': [
