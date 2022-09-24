@@ -16,12 +16,12 @@ class Category(NamedTuple):
 
 
 class Categorizer:
-    def __init__(self, path: Path = home / 'categories.yaml'):
+    def __init__(self, path: Path = home / "categories.yaml"):
         with open(path) as yml:
             data = safe_load(yml)
         self.categories = self.unpack(data)
 
-    def unpack(self, data: dict, prefix: str = '') -> List[Category]:
+    def unpack(self, data: dict, prefix: str = "") -> List[Category]:
         pack: List[Category] = []
         for name, value in data.items():
             category = f"{prefix}:{name}" if prefix else name
@@ -40,8 +40,10 @@ class Categorizer:
             for category in self.categories:
                 for keyword in category.keywords:
                     if keyword in transaction.subject:
-                        if transaction.category and \
-                                transaction.category != category:
+                        if (
+                            transaction.category
+                            and transaction.category != category
+                        ):
                             log.warning(
                                 f"Transaction {transaction.subject} is already "
                                 "categorized as {transaction.category}, not {category}"

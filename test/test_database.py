@@ -116,8 +116,8 @@ def test_count(db: SQLite):
 
 
 def test_categorize(db: SQLite, stored_transactions: List[Transaction]):
-    db.transactions.categorize(stored_transactions[0], 'test:category')
-    assert db.transactions.get_one(category='test:category') == stored_transactions[0]
+    db.transactions.categorize(stored_transactions[0], "test:category")
+    assert db.transactions.get_one(category="test:category") == stored_transactions[0]
 
 
 def test_duplicates(

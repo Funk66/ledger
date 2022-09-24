@@ -10,7 +10,8 @@ from ledger.categories import Categorizer
 
 
 def test_parse(
-    stored_transactions: List[Transaction], parsed_transactions: List[Transaction],
+    stored_transactions: List[Transaction],
+    parsed_transactions: List[Transaction],
 ):
     test_dir = Path(__file__).parent
     with TemporaryDirectory() as tmp_dir:

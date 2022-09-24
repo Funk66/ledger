@@ -1,13 +1,13 @@
-from datetime import datetime, date
+from datetime import date, datetime
 
 
 def isodate(string: str) -> date:
-    return datetime.strptime(string, '%Y-%m-%d').date()
+    return datetime.strptime(string, "%Y-%m-%d").date()
 
 
 def str2date(value: str) -> date:
-    return datetime.strptime(value, '%d.%m.%Y').date()
+    return datetime.strptime(value, "%d.%m.%Y").date()
 
 
 def str2float(value: str) -> float:
-    return float(value.replace('.', '').replace(',', '.'))
+    return float(value.replace(".", "").replace(",", "."))

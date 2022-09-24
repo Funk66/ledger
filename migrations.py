@@ -1,9 +1,8 @@
-from pathlib import Path
 from argparse import ArgumentParser
-from logging import DEBUG, INFO, basicConfig, getLogger
 from csv import reader, writer
-from typing import List, Any
-
+from logging import DEBUG, INFO, basicConfig, getLogger
+from pathlib import Path
+from typing import Any, List
 
 ROW = List[Any]
 ROWS = List[ROW]
@@ -52,7 +51,11 @@ if __name__ == "__main__":
         "-t", "--to", default=str(versions[-1][0]), help="Final version"
     )
     parser.add_argument(
-        "-i", "--input", type=Path, default=default_path, help="Path to the input file"
+        "-i",
+        "--input",
+        type=Path,
+        default=default_path,
+        help="Path to the input file",
     )
     parser.add_argument(
         "-o",
@@ -64,20 +67,26 @@ if __name__ == "__main__":
     parser.add_argument("-v", dest="verbose")
     arguments = parser.parse_args()
 
-    basicConfig(level=DEBUG if arguments.verbose else INFO, format="%(message)s")
+    basicConfig(
+        level=DEBUG if arguments.verbose else INFO, format="%(message)s"
+    )
 
     version_path = arguments.output.parent / "version"
     if version_path.exists():
         with open(version_path) as version_file:
             initial_version = Version(version_file.readline().strip())
         if arguments.frm and arguments.frm != initial_version:
-            raise ValueError(f"Version mismatch: {arguments.frm} != {initial_version}")
+            raise ValueError(
+                f"Version mismatch: {arguments.frm} != {initial_version}"
+            )
         arguments.frm = str(initial_version)
 
     rows = read(arguments.input)
     last_version = ""
     for version, converter in versions:
-        if version >= Version(arguments.frm) and version <= Version(arguments.to):
+        if version >= Version(arguments.frm) and version <= Version(
+            arguments.to
+        ):
             log.info(f"Converting to v{version}")
             rows = converter(rows)
             last_version = str(version)

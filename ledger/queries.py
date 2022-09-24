@@ -1,24 +1,23 @@
-from enum import Enum
-from re import compile
 from datetime import date
-from typing import TypeVar, Type, Any, Callable, Union, List
+from enum import Enum
 from functools import partial
+from re import compile
+from typing import Any, Callable, List, Type, TypeVar, Union
 
 from .database import Transaction
 from .utils import isodate
 
-
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Operator(Enum):
-    gt = '>'
-    ge = '>='
-    lt = '<'
-    le = '<='
-    ne = '!='
-    eq = 'is'
-    re = 'has'
+    gt = ">"
+    ge = ">="
+    lt = "<"
+    le = "<="
+    ne = "!="
+    eq = "is"
+    re = "has"
 
 
 class Query:
@@ -30,7 +29,7 @@ class Query:
         if self.operator is Operator.re:
             self.check = compile(self.value).search
         else:
-            method = getattr(datatype, f'__{self.operator.name}__')
+            method = getattr(datatype, f"__{self.operator.name}__")
             self.check = partial(self.__inv__, method)
 
     def __str__(self) -> str:
@@ -49,7 +48,7 @@ class Filter:
         self.data = [data]
 
     def __repr__(self) -> str:
-        queries = '] and ['.join([str(query) for query in self.queries])
+        queries = "] and [".join([str(query) for query in self.queries])
         return f"Filter [{queries}]"
 
     def add(self, query: Union[Query, Callable[[Transaction], bool]]) -> None:

@@ -1,9 +1,9 @@
-from sys import stdout
 from argparse import ArgumentParser
 from logging import DEBUG, INFO, basicConfig, getLogger
 from pathlib import Path
-from colorful import red, green, grey, bold, yellow  # type: ignore
+from sys import stdout
 
+from colorful import bold, green, grey, red, yellow  # type: ignore
 from IPython import start_ipython  # type: ignore
 from traitlets.config import Config  # type: ignore
 
@@ -12,7 +12,7 @@ from .database import SQLite
 from .parsers import parsers
 
 
-def parse(filename: Path, bank: str, account: str = None) -> None:
+def parse(filename: Path, bank: str, account: str = "") -> None:
     account = account or bank
     transactions = parsers[bank](filename, account)
     db = SQLite()
@@ -21,7 +21,9 @@ def parse(filename: Path, bank: str, account: str = None) -> None:
         account=account, order="rowid", direction="DESC"
     )
     if last_transaction:
-        new_transactions = transactions[transactions.index(last_transaction)+1:]
+        new_transactions = transactions[
+            transactions.index(last_transaction) + 1 :
+        ]
         assert len(new_transactions) < len(
             transactions
         ), "No matching transaction found"
@@ -39,7 +41,9 @@ def categorize() -> None:
     db = SQLite()
     db.load()
     categories = db.transactions.distinct("category")
-    transactions = db.transactions.get_many(category="", order="date", direction="DESC")
+    transactions = db.transactions.get_many(
+        category="", order="date", direction="DESC"
+    )
     print(f"{len(transactions)} transactions uncategorized")
     while transactions:
         transaction = transactions.pop()
@@ -55,7 +59,9 @@ def categorize() -> None:
             return
         if substr in categories:
             category = substr
-        elif (matches := [category for category in categories if substr in category]):
+        elif matches := [
+            category for category in categories if substr in category
+        ]:
             if len(matches) == 1:
                 category = matches[0]
             else:
@@ -102,20 +108,30 @@ def run():
     subparser = parser.add_subparsers(dest="command")
     parse_command = subparser.add_parser("parse", help="Parse a bank extract")
     parse_command.add_argument("filename", type=Path, help="CSV file to parse")
-    parse_command.add_argument("-a", "--account", help="Account to add transactions to")
+    parse_command.add_argument(
+        "-a", "--account", help="Account to add transactions to"
+    )
     parse_command.add_argument(
         "-b", "--bank", choices=parsers.keys(), help="CSV file format"
     )
     sql_command = subparser.add_parser("sql")
     sql_subparser = sql_command.add_subparsers(dest="subcommand")
     sql_export_command = sql_subparser.add_parser("export")
-    sql_export_command.add_argument("filename", type=Path, help="Output filename")
+    sql_export_command.add_argument(
+        "filename", type=Path, help="Output filename"
+    )
     subparser.add_parser("categorize")
     arguments = parser.parse_args()
 
     if arguments.command == "parse":
-        basicConfig(level=DEBUG if arguments.verbose else INFO, format="%(message)s")
-        parse(arguments.filename, arguments.bank, arguments.account or arguments.bank)
+        basicConfig(
+            level=DEBUG if arguments.verbose else INFO, format="%(message)s"
+        )
+        parse(
+            arguments.filename,
+            arguments.bank,
+            arguments.account or arguments.bank,
+        )
     elif arguments.command == "sql":
         sql()
     elif arguments.command == "categorize":

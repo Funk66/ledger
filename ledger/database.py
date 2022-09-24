@@ -1,38 +1,27 @@
-from logging import getLogger
-from re import sub
 from csv import reader, writer
-from pathlib import Path
+from dataclasses import astuple, dataclass, field
 from datetime import date as day
 from functools import wraps
-from typing import (
-    Set,
-    List,
-    Any,
-    Callable,
-    Optional,
-    Tuple,
-    Type,
-    Dict,
-    Generic,
-    TypeVar,
-)
-from dataclasses import dataclass, field, astuple
+from logging import getLogger
+from pathlib import Path
+from re import sub
+from typing import (Any, Callable, Dict, Generic, List, Optional, Set, Tuple,
+                    Type, TypeVar)
 
 from litecli.main import LiteCli, SQLExecute  # type: ignore
 
-from . import home, __version__
-
+from . import __version__, home
 
 Row = TypeVar("Row")
 
 
 class MetaTable(type):
-    def __new__(mcs, name, bases, ns):
+    def __new__(cls, name, bases, ns):
         if name != "Table":
             assert "schema" in ns, f"Must define a schema for Table {name}"
             columns = [column for column in ns["schema"].__annotations__]
             ns.update(name=name.lower(), columns=columns)
-        return super().__new__(mcs, name, bases, ns)
+        return super().__new__(cls, name, bases, ns)
 
 
 class Table(Generic[Row], metaclass=MetaTable):
@@ -64,7 +53,9 @@ class Table(Generic[Row], metaclass=MetaTable):
             if attrs.metadata.get("primary"):
                 primary_keys.append(column)
             if attrs.metadata.get("reference"):
-                assert not foreign_key, "Feature not implemented: multiple foreign keys"
+                assert (
+                    not foreign_key
+                ), "Feature not implemented: multiple foreign keys"
                 foreign_key = (
                     f'FOREIGN KEY ("{column}") '
                     f'REFERENCES {attrs.metadata["reference"].name}("rowid")'
@@ -83,7 +74,12 @@ class Table(Generic[Row], metaclass=MetaTable):
         return cursor.fetchall()
 
     def select(
-        self, *args, order: str = None, direction: str = "ASC", limit: int = 0, **kwargs
+        self,
+        *args,
+        order: str = "",
+        direction: str = "ASC",
+        limit: int = 0,
+        **kwargs,
     ) -> List[Tuple[Any, ...]]:
         all_columns = ["rowid"] + self.columns
         for arg in args + tuple(kwargs.keys()):
@@ -96,7 +92,10 @@ class Table(Generic[Row], metaclass=MetaTable):
                 command += f" {column}='{value}'"
         if order:
             assert order in all_columns, f"{order} is not a valid column"
-            assert direction in ["ASC", "DESC"], f"{direction} is not a valid direction"
+            assert direction in [
+                "ASC",
+                "DESC",
+            ], f"{direction} is not a valid direction"
             command += f' ORDER BY "{order}" {direction}'
         if limit:
             command += f" LIMIT {limit}"
@@ -110,13 +109,15 @@ class Table(Generic[Row], metaclass=MetaTable):
         cursor.executemany(f"INSERT INTO {self.name} VALUES ({columns})", data)
 
     def get_one(
-        self, order: str = None, direction: str = "ASC", **kwargs
+        self, order: str = "", direction: str = "ASC", **kwargs
     ) -> Optional[Row]:
-        results = self.get_many(order=order, direction=direction, limit=1, **kwargs)
+        results = self.get_many(
+            order=order, direction=direction, limit=1, **kwargs
+        )
         return results[0] if results else None
 
     def get_many(
-        self, order: str = None, direction: str = "ASC", limit: int = 0, **kwargs
+        self, order: str = "", direction: str = "ASC", limit: int = 0, **kwargs
     ) -> List[Row]:
         return [
             self.schema(*row)
@@ -133,7 +134,9 @@ class Table(Generic[Row], metaclass=MetaTable):
 
     def distinct(self, column: str) -> Set[Any]:
         assert column in self.columns, f"{column} is not a valid column"
-        command = f"SELECT DISTINCT {column} FROM {self.name} WHERE {column}!=''"
+        command = (
+            f"SELECT DISTINCT {column} FROM {self.name} WHERE {column}!=''"
+        )
         return {row[0] for row in self.fetch(command)}
 
     def count(self) -> int:
@@ -178,13 +181,20 @@ class Transaction:
 class Transactions(Table[Transaction]):
     schema = Transaction
 
-    def check(self, account: str = None) -> None:
+    def check(self, account: str = "") -> None:
         count = self.fetch(f"SELECT COUNT(rowid) FROM {self.name}")
-        rowid = self.fetch(f"SELECT rowid FROM {self.name} ORDER BY rowid DESC LIMIT 1")
-        assert count == rowid, "The last rowid does not match the total number of rows"
-        for account in [account] or self.distinct("account"):
+        rowid = self.fetch(
+            f"SELECT rowid FROM {self.name} ORDER BY rowid DESC LIMIT 1"
+        )
+        assert (
+            count == rowid
+        ), "The last rowid does not match the total number of rows"
+        accounts = [account] if account else self.distinct("account")
+        for account in accounts:
             previous = None
-            transactions = self.select("value", "saldo", order="rowid", account=account)
+            transactions = self.select(
+                "value", "saldo", order="rowid", account=account
+            )
             for transaction in transactions:
                 if previous is not None:
                     assert (
@@ -206,7 +216,9 @@ class Transactions(Table[Transaction]):
 @dataclass
 class Tag:
     name: str = field(metadata={"primary": True})
-    transaction: int = field(metadata={"primary": True, "reference": Transactions})
+    transaction: int = field(
+        metadata={"primary": True, "reference": Transactions}
+    )
 
 
 class Tags(Table[Tag]):
@@ -226,20 +238,28 @@ class SQLite:
         with open(self.path / "version") as version_file:
             version = version_file.readline().strip()
             if version != __version__:
-                raise RuntimeError(f"Running v{__version__} != database v{version}")
+                raise RuntimeError(
+                    f"Running v{__version__} != database v{version}"
+                )
         for table in ["transactions", "tags"]:
-            with open(self.path / f"{table}.csv", encoding="latin-1") as csvfile:
+            with open(
+                self.path / f"{table}.csv", encoding="latin-1"
+            ) as csvfile:
                 getattr(self, table).insert(reader(csvfile))
 
     def save(self) -> None:
         log.info("Saving data")
         for table in ["transactions", "tags"]:
-            with open(self.path / f"{table}.csv", "w", encoding="latin-1") as output:
+            with open(
+                self.path / f"{table}.csv", "w", encoding="latin-1"
+            ) as output:
                 csvfile = writer(output)
                 csvfile.writerows(getattr(self, table).select())
 
     def prompt(self) -> None:
-        lite_cli = LiteCli(sqlexecute=self.sqlexecute, liteclirc=home / "config")
+        lite_cli = LiteCli(
+            sqlexecute=self.sqlexecute, liteclirc=home / "config"
+        )
         lite_cli.run_cli()
         if self.dirty and input("Save? ") == "y":
             self.save()
@@ -256,6 +276,9 @@ def tripwire(run: Callable[[str], "SQLResponse"], client: SQLite):
 
 
 SQLResponse = Tuple[
-    Optional[str], Optional[List[Tuple[Any]]], Optional[Tuple[str]], Optional[str]
+    Optional[str],
+    Optional[List[Tuple[Any]]],
+    Optional[Tuple[str]],
+    Optional[str],
 ]
 log = getLogger(__name__)
