@@ -17,11 +17,11 @@ def read(filename: Path, account: str = "ingdiba") -> List[Transaction]:
                     valuta=str2date(values[1]),
                     type=types[values[3]],
                     subject=values[2].strip(),
-                    reference=values[5].strip(),
-                    saldo=str2float(values[6]),
-                    value=str2float(values[8]),
+                    reference=values[4].strip(),
+                    saldo=str2float(values[5]),
+                    value=str2float(values[7]),
                     account=account,
-                    comment=values[4],
+                    # comment=values[4],
                 )
             )
     return transactions

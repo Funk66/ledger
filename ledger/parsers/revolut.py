@@ -29,7 +29,7 @@ def read(filename: Path, account: str = "revolut") -> List[Transaction]:
                     subject=values[4],
                     reference="",
                     value=float(values[5]),
-                    saldo=float(values[9]) - fee,
+                    saldo=round(float(values[9]) - fee, 2),
                     account=account,
                 )
             )
