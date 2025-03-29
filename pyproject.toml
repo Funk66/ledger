@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ledger"
+version = "0.2.1"
+description = "Ledger CLI tool"
+authors = [{ name = "Guillermo Guirao Aguilar" }]
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = ["IPython", "colorful", "litecli", "pyyaml"]
+scripts = { ledger = "ledger.client:run" }
+
+[dependency-groups]
+dev = ["ruff", "pytest", "pip-tools"]
+
+[tool.hatch.build]
+include = ["src/ledger/parsers/**"]
+
+[tool.hatch.metadata]
+package-dir = { "" = "src" }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ledger"]

@@ -1,7 +1,0 @@
--r main.in
-black
-flake8
-mypy
-pandas-stubs
-pip-tools
-pytest
