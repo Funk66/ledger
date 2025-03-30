@@ -1,16 +1,16 @@
-from pytest import fixture, raises  # type: ignore
-from pathlib import Path
-from dataclasses import astuple
-from random import choice
+from dataclasses import astuple, dataclass, field
 from datetime import date
-from sqlite3 import IntegrityError
-from litecli.main import SQLExecute  # type: ignore
-from dataclasses import dataclass, field
-from tempfile import TemporaryDirectory
 from filecmp import dircmp
-from typing import Optional, List
+from pathlib import Path
+from random import choice
+from sqlite3 import IntegrityError
+from tempfile import TemporaryDirectory
+from typing import List, Optional
 
-from ledger.database import Table, Transaction, Tag, SQLite
+from litecli.main import SQLExecute
+from pytest import raises
+
+from ledger.database import SQLite, Table, Tag, Transaction
 
 
 @dataclass

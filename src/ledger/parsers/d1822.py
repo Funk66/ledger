@@ -27,9 +27,7 @@ def read(filename: Path, account: str = "1822") -> List[Transaction]:
                     valuta=str2date(values[2]),
                     type=types[values[6]],
                     subject=values[7].strip(),
-                    reference="".join(
-                        [value.strip() for value in values[13:18]]
-                    ),
+                    reference="".join([value.strip() for value in values[13:18]]),
                     saldo=saldo,
                     value=value,
                     account=account,

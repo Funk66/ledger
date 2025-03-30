@@ -15,5 +15,7 @@ jobs:
         run: uv sync
       - name: Test
         run: uv run pytest
+      - name: Format
+        run: uv run ruff format --diff
       - name: Lint
-        run: ruff check --output-format=github .
+        run: uv run ruff check --output-format=github .

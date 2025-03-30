@@ -71,9 +71,7 @@ class Table:
         return "\n".join(lines)
 
     def rows(self) -> str:
-        data = [
-            self._row_(self.data[i], odd=i % 2) for i in range(len(self.data))
-        ]
+        data = [self._row_(self.data[i], odd=i % 2) for i in range(len(self.data))]
         return "\n".join(data + [self._border_(3)])
 
 
